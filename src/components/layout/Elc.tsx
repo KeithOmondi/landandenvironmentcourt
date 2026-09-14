@@ -147,6 +147,8 @@ const Elc: React.FC = () => {
           </div>
         </div>
 
+        
+
         {/* ================= CORE VALUES ================= */}
         <div className="space-y-8">
           <div className="flex items-center gap-3 pb-4 border-b border-slate-200">

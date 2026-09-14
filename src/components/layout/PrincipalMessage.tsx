@@ -46,25 +46,25 @@ const featuredHighlights = [
 // Data for ELC Key Statistics
 const elcStats = [
   {
-    value: '38',
+    value: '40',
     label: 'ELC Court Stations',
     description: 'Across Kenyan Counties',
     icon: FaMapMarkerAlt
   },
   {
-    value: '12',
+    value: '5',
     label: 'Sub-Registries',
     description: 'Expanding Access to Land Justice',
     icon: FaSitemap
   },
   {
-    value: '2',
+    value: '3',
     label: 'Specialized Divisions',
     description: 'Environment & Land Matters',
     icon: FaLandmark
   },
   {
-    value: '51',
+    value: '61',
     label: 'ELC Judges',
     description: 'Serving the Republic',
     icon: FaUsers

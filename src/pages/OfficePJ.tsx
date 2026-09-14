@@ -133,7 +133,7 @@ const OfficePJ: React.FC = () => {
             <FaGavel className="text-[#C69A33]" />
             <span className="font-semibold uppercase tracking-wider">Judicial Leadership</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-slate-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl lg:text-3xl font-serif font-bold text-slate-900 tracking-tight">
             Office of the <span className="text-[#061e14]">Principal Judge</span>
           </h1>
           <p className="text-slate-600 text-base sm:text-lg leading-relaxed">

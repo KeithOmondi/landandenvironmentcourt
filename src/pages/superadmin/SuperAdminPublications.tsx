@@ -1,0 +1,401 @@
+// src/features/publications/SuperAdminPublications.tsx
+//
+// Super-admin publications workspace.
+//
+// Scope is deliberately narrower than AdminPublications:
+//   - Pending review queue (fetchPendingPublications)
+//   - Approve / reject with a review note
+//     (approvePublication / rejectPublication)
+//
+// It does NOT create, edit, submit, or delete — those are
+// AdminPublications concerns. Publications have no featured flag, so
+// there is no feature toggle here. All HTTP lives in the slice.
+
+import { useEffect, useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchAllPublications,
+  fetchPendingPublications,
+  approvePublication,
+  rejectPublication,
+  clearPendingError,
+  clearAdminError,
+  clearReviewState,
+  type PublicationSummary,
+} from '../../store/slices/publicationsSlice';
+import { isSuperAdmin as userIsSuperAdmin } from '../../store/slices/authSlice';
+import type { AppDispatch, RootState } from '../../store/store';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+  });
+
+const StatusBadge = ({ status }: { status: PublicationSummary['status'] }) => {
+  const cls =
+    status === 'pending'
+      ? 'bg-amber-100 text-amber-800'
+      : status === 'published'
+        ? 'bg-green-100 text-green-800'
+        : status === 'rejected'
+          ? 'bg-red-100 text-red-800'
+          : 'bg-gray-100 text-gray-700';
+  return (
+    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {status}
+    </span>
+  );
+};
+
+// ─── Reject dialog ───────────────────────────────────────────────────────────
+
+interface RejectDialogProps {
+  title: string;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: (note: string) => void;
+}
+
+const RejectDialog = ({ title, busy, onCancel, onConfirm }: RejectDialogProps) => {
+  const [note, setNote] = useState('');
+  const trimmed = note.trim();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-4 shadow-lg">
+        <h3 className="mb-1 text-base font-semibold">Reject publication</h3>
+        <p className="mb-3 text-xs text-gray-500">{title}</p>
+
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={4}
+          placeholder="Explain what needs to change…"
+          className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+          autoFocus
+        />
+
+        <div className="mt-3 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="rounded border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(trimmed)}
+            disabled={busy || trimmed.length === 0}
+            className="rounded bg-red-600 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          >
+            {busy ? 'Rejecting…' : 'Reject'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Pending row ─────────────────────────────────────────────────────────────
+
+interface PendingRowProps {
+  item: PublicationSummary;
+  busy: boolean;
+  onApprove: (item: PublicationSummary) => void;
+  onReject: (item: PublicationSummary) => void;
+}
+
+const PendingRow = ({ item, busy, onApprove, onReject }: PendingRowProps) => (
+  <tr className="border-b border-gray-100">
+    <td className="px-3 py-2">
+      <div className="font-medium">{item.title}</div>
+      <div className="text-xs text-gray-500 line-clamp-1">
+        {item.description}
+      </div>
+    </td>
+    <td className="px-3 py-2 text-xs text-gray-600">{item.category}</td>
+    <td className="px-3 py-2 text-xs text-gray-600">{item.year}</td>
+    <td className="px-3 py-2 text-xs text-gray-600">{item.fileSize}</td>
+    <td className="px-3 py-2 text-xs text-gray-500">
+      {formatDate(item.createdAt)}
+    </td>
+    <td className="px-3 py-2">
+      <div className="flex flex-wrap gap-2 text-xs">
+        <a
+          href={item.fileUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50"
+        >
+          View PDF
+        </a>
+        <button
+          type="button"
+          onClick={() => onApprove(item)}
+          disabled={busy}
+          className="rounded border border-green-300 px-2 py-1 text-green-800 hover:bg-green-50 disabled:opacity-50"
+        >
+          Approve
+        </button>
+        <button
+          type="button"
+          onClick={() => onReject(item)}
+          disabled={busy}
+          className="rounded border border-red-300 px-2 py-1 text-red-800 hover:bg-red-50 disabled:opacity-50"
+        >
+          Reject
+        </button>
+      </div>
+    </td>
+  </tr>
+);
+
+// ─── Published row ───────────────────────────────────────────────────────────
+
+const PublishedRow = ({ item }: { item: PublicationSummary }) => (
+  <tr className="border-b border-gray-100">
+    <td className="px-3 py-2">
+      <div className="font-medium">{item.title}</div>
+      <div className="text-xs text-gray-500 line-clamp-1">
+        {item.description}
+      </div>
+    </td>
+    <td className="px-3 py-2 text-xs text-gray-600">{item.category}</td>
+    <td className="px-3 py-2 text-xs text-gray-600">{item.year}</td>
+    <td className="px-3 py-2">
+      <StatusBadge status={item.status} />
+    </td>
+    <td className="px-3 py-2 text-xs text-gray-500">
+      {item.publishedAt ? formatDate(item.publishedAt) : '—'}
+    </td>
+    <td className="px-3 py-2">
+      <a
+        href={item.fileUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
+      >
+        View PDF
+      </a>
+    </td>
+  </tr>
+);
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+
+const SuperAdminPublications = () => {
+  const dispatch = useDispatch<AppDispatch>();
+
+  const {
+    pendingItems,
+    isLoadingPending,
+    pendingError,
+    adminItems,
+    isLoadingAdmin,
+    adminError,
+    isReviewing,
+    reviewError,
+    reviewSuccess,
+  } = useSelector((s: RootState) => s.publications);
+
+  // Role check via the auth slice's helper. Same pattern as the other
+  // super-admin pages — one source of truth for the string.
+  const isSuperAdmin = useSelector((s: RootState) =>
+    userIsSuperAdmin(s.auth.user),
+  );
+
+  const [tab, setTab] = useState<'pending' | 'published'>('pending');
+  const [rejecting, setRejecting] = useState<PublicationSummary | null>(null);
+
+  // Initial load — pending queue is the primary surface.
+  useEffect(() => {
+    dispatch(fetchPendingPublications());
+  }, [dispatch]);
+
+  // Published list is loaded lazily the first time the tab is opened.
+  useEffect(() => {
+    if (tab === 'published') dispatch(fetchAllPublications());
+  }, [tab, dispatch]);
+
+  // Clear transient success/error banners when switching tabs.
+  useEffect(() => {
+    dispatch(clearPendingError());
+    dispatch(clearReviewState());
+    dispatch(clearAdminError());
+  }, [tab, dispatch]);
+
+  const publishedItems = useMemo(
+    () => adminItems.filter((i) => i.status === 'published'),
+    [adminItems],
+  );
+
+  const handleApprove = (item: PublicationSummary) => {
+    dispatch(approvePublication({ publicationId: item.id }));
+  };
+
+  const handleRejectConfirm = async (note: string) => {
+    if (!rejecting) return;
+    try {
+      await dispatch(
+        rejectPublication({ publicationId: rejecting.id, reviewNote: note }),
+      ).unwrap();
+      setRejecting(null);
+    } catch {
+      // Slice has already stored reviewError; leave the dialog open so
+      // the user can retry or cancel.
+    }
+  };
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="mx-auto max-w-3xl p-6">
+        <p className="text-sm text-red-600">
+          You don’t have permission to review publications.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl p-4">
+      <div className="mb-4">
+        <h1 className="text-xl font-semibold">Publications review</h1>
+        <p className="text-sm text-gray-500">
+          Approve or reject submissions before they appear in the public
+          library.
+        </p>
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-4 flex gap-2 border-b border-gray-200">
+        <button
+          type="button"
+          onClick={() => setTab('pending')}
+          className={`px-3 py-2 text-sm ${
+            tab === 'pending'
+              ? 'border-b-2 border-blue-600 font-medium text-blue-600'
+              : 'text-gray-600'
+          }`}
+        >
+          Pending
+          {pendingItems.length > 0 && (
+            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+              {pendingItems.length}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('published')}
+          className={`px-3 py-2 text-sm ${
+            tab === 'published'
+              ? 'border-b-2 border-blue-600 font-medium text-blue-600'
+              : 'text-gray-600'
+          }`}
+        >
+          Published
+        </button>
+      </div>
+
+      {/* Success / error banners */}
+      {reviewSuccess && (
+        <p className="mb-2 text-sm text-green-600">Review action applied.</p>
+      )}
+      {reviewError && <p className="mb-2 text-sm text-red-600">{reviewError}</p>}
+
+      {/* Pending tab */}
+      {tab === 'pending' && (
+        <>
+          {isLoadingPending && (
+            <p className="text-sm text-gray-500">Loading…</p>
+          )}
+          {pendingError && (
+            <p className="text-sm text-red-600">{pendingError}</p>
+          )}
+          {!isLoadingPending && !pendingError && pendingItems.length === 0 && (
+            <p className="text-sm text-gray-500">Nothing awaiting review.</p>
+          )}
+          {!isLoadingPending && !pendingError && pendingItems.length > 0 && (
+            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2">Publication</th>
+                    <th className="px-3 py-2">Category</th>
+                    <th className="px-3 py-2">Year</th>
+                    <th className="px-3 py-2">Size</th>
+                    <th className="px-3 py-2">Submitted</th>
+                    <th className="px-3 py-2">Decision</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingItems.map((item) => (
+                    <PendingRow
+                      key={item.id}
+                      item={item}
+                      busy={isReviewing}
+                      onApprove={handleApprove}
+                      onReject={setRejecting}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Published tab */}
+      {tab === 'published' && (
+        <>
+          {isLoadingAdmin && <p className="text-sm text-gray-500">Loading…</p>}
+          {adminError && <p className="text-sm text-red-600">{adminError}</p>}
+          {!isLoadingAdmin && !adminError && publishedItems.length === 0 && (
+            <p className="text-sm text-gray-500">
+              No published publications yet.
+            </p>
+          )}
+          {!isLoadingAdmin && !adminError && publishedItems.length > 0 && (
+            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2">Publication</th>
+                    <th className="px-3 py-2">Category</th>
+                    <th className="px-3 py-2">Year</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2">Published</th>
+                    <th className="px-3 py-2">File</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {publishedItems.map((item) => (
+                    <PublishedRow key={item.id} item={item} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Reject dialog */}
+      {rejecting && (
+        <RejectDialog
+          title={rejecting.title}
+          busy={isReviewing}
+          onCancel={() => setRejecting(null)}
+          onConfirm={handleRejectConfirm}
+        />
+      )}
+    </div>
+  );
+};
+
+export default SuperAdminPublications;

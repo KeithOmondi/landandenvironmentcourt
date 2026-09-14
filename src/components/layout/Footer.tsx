@@ -56,7 +56,7 @@ const Footer: React.FC = () => {
               <div className="flex items-center gap-3">
                 <FaEnvelope className="w-4 h-4 text-[#C69A33] shrink-0" />
                 <a href="mailto:registrarelc@court.go.ke" className="hover:text-[#D4AF37] transition-colors truncate">
-                  Email: registrarelc@court.go.ke
+                  Email: orelc@court.go.ke
                 </a>
               </div>
             </div>
