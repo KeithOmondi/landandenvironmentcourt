@@ -7,10 +7,20 @@
 //   - Profile modal reads from the already-fetched row — the summary
 //     carries the whole record, so no second request per open.
 //
-// Portraits are rendered from `judge.image.url`, which is the
-// Cloudinary delivery URL. When a judge has no portrait (`image` is
-// null), the card falls back to initials on the existing gradient —
-// same pattern as the admin and super-admin listings.
+// Portrait presentation:
+//   Portrait cards follow the judiciary.go.ke bench pattern: a square,
+//   top-cropped portrait on a neutral card, name and title below in
+//   dark text. The photo is the subject; the card recedes. This is
+//   deliberate — it's the standard "meet the bench" layout and it
+//   reads better than a branded card once real photos exist.
+//
+//   Judges without a portrait fall back to initials on the dark green
+//   gradient. The fallback is contained to the portrait slot; it does
+//   not bleed into the card body, so placeholder cards look deliberate
+//   rather than unfinished.
+//
+//   The grid is 4-up on desktop (matching the reference site) and
+//   steps down to 3, 2, 1 as the viewport narrows.
 
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -24,7 +34,6 @@ import {
   FaGraduationCap,
   FaAward,
   FaBuilding,
-  FaChevronRight,
   FaMapMarkerAlt,
 } from 'react-icons/fa';
 import {
@@ -252,14 +261,14 @@ const JudgesPage: React.FC = () => {
 
         {/* Loading */}
         {isLoadingPublic && (
-          <div className="text-center py-16 bg-white rounded-3xl border border-slate-200">
+          <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
             <p className="text-sm text-slate-500">Loading judges…</p>
           </div>
         )}
 
         {/* Error */}
         {!isLoadingPublic && publicError && (
-          <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 space-y-3">
+          <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 space-y-3">
             <FaGavel className="w-10 h-10 text-slate-300 mx-auto" />
             <p className="text-slate-600 font-medium">{publicError}</p>
             <button
@@ -273,7 +282,7 @@ const JudgesPage: React.FC = () => {
 
         {/* Empty */}
         {!isLoadingPublic && !publicError && publicItems.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 space-y-3">
+          <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 space-y-3">
             <FaGavel className="w-10 h-10 text-slate-300 mx-auto" />
             <p className="text-slate-600 font-medium">
               No judges found matching your criteria.
@@ -289,63 +298,55 @@ const JudgesPage: React.FC = () => {
           </div>
         )}
 
-        {/* Grid */}
+        {/* Grid — 4-up on desktop, matching the reference bench layout.
+            Card styling is intentionally neutral: white card, square
+            portrait, dark text below. The photo carries the weight. */}
         {!isLoadingPublic && !publicError && publicItems.length > 0 && (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {publicItems.map((judge) => (
                 <div
                   key={judge.id}
                   onClick={() => setSelectedJudge(judge)}
-                  className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col group cursor-pointer"
+                  className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-200 flex flex-col group cursor-pointer"
                 >
-                  <div className="relative h-64 w-full bg-gradient-to-br from-[#061e14] to-slate-900 overflow-hidden">
+                  {/* Portrait slot — square, neutral background so the
+                      photo's own backdrop blends with the card. */}
+                  <div className="relative aspect-square w-full bg-slate-100 overflow-hidden">
                     {judge.image?.url ? (
                       <img
                         src={judge.image.url}
                         alt={judge.name}
-                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                        className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-[1.03] transition-transform duration-300"
                       />
                     ) : (
-                      // No portrait — render initials on the gradient
-                      // rather than a broken image icon.
-                      <div className="w-full h-full flex items-center justify-center">
+                      // No portrait — render initials on the brand
+                      // gradient. Contained to the slot so placeholder
+                      // cards still look deliberate.
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#061e14] to-slate-900">
                         <span className="text-5xl font-serif font-bold text-[#D4AF37]/80 tracking-wider">
                           {initials(judge.name)}
                         </span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
-
-                    <div className="absolute top-3 right-3 bg-[#061e14]/90 backdrop-blur-md border border-[#C69A33]/50 px-3 py-1 rounded-full text-[11px] font-mono font-bold text-[#D4AF37]">
-                      Appointed {judge.appointedYear}
-                    </div>
-
-                    <div className="absolute bottom-3 left-3 right-3">
-                      <span className="text-[10px] font-mono text-[#D4AF37] uppercase font-bold tracking-wider block">
-                        {judge.title}
-                      </span>
-                      <h3 className="text-lg font-serif font-bold text-white group-hover:text-[#D4AF37] transition-colors">
-                        {judge.name}
-                      </h3>
-                    </div>
                   </div>
 
-                  <div className="p-6 flex flex-col justify-between flex-grow space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs text-slate-600 font-mono">
-                        <FaBuilding className="text-[#C69A33]" />
-                        <span>{judge.station}</span>
-                      </div>
-                      <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
+                  {/* Text block — neutral, dark text on white. The
+                      photo is the subject; the text recedes. */}
+                  <div className="p-5 flex flex-col flex-grow text-center space-y-2">
+                    <h3 className="font-serif font-bold text-slate-900 text-base leading-snug">
+                      {judge.name}
+                    </h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      {judge.title}
+                      {judge.station ? `, ${judge.station}` : ''}
+                    </p>
+                    {judge.bio && (
+                      <p className="text-xs text-slate-600 leading-relaxed line-clamp-3 pt-1">
                         {judge.bio}
                       </p>
-                    </div>
-
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-mono text-[#061e14] font-bold">
-                      <span>View Profile</span>
-                      <FaChevronRight className="w-3 h-3 text-[#C69A33] group-hover:translate-x-1 transition-transform" />
-                    </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -386,7 +387,7 @@ const JudgesPage: React.FC = () => {
           onClick={() => setSelectedJudge(null)}
         >
           <div
-            className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden relative transform transition-all duration-300 scale-100 max-h-[90vh] flex flex-col"
+            className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden relative transform transition-all duration-300 scale-100 max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -406,7 +407,7 @@ const JudgesPage: React.FC = () => {
 
             {/* Modal Body */}
             <div className="p-6 sm:p-8 overflow-y-auto space-y-6">
-              {/* Header Info Block */}
+              {/* Header Info Block — with portrait when available. */}
               <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-3">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#061e14] text-[#D4AF37] text-xs font-mono font-bold uppercase">
@@ -421,20 +422,32 @@ const JudgesPage: React.FC = () => {
                   </span>
                 </div>
 
-                <div>
-                  <h3 className="text-2xl font-serif font-bold text-slate-900">
-                    {selectedJudge.name}
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs text-slate-700 font-mono">
-                  <div className="flex items-center gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-200/80">
-                    <FaBuilding className="text-[#C69A33] shrink-0" />
-                    <span className="truncate">{selectedJudge.station}</span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-200/80">
-                    <FaMapMarkerAlt className="text-[#C69A33] shrink-0" />
-                    <span>Region: {selectedJudge.region}</span>
+                <div className="flex flex-col sm:flex-row gap-5 items-start">
+                  {selectedJudge.image?.url && (
+                    <div className="w-32 h-32 shrink-0 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                      <img
+                        src={selectedJudge.image.url}
+                        alt={selectedJudge.name}
+                        className="w-full h-full object-cover object-top"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-3">
+                    <h3 className="text-2xl font-serif font-bold text-slate-900">
+                      {selectedJudge.name}
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700 font-mono">
+                      <div className="flex items-center gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-200/80">
+                        <FaBuilding className="text-[#C69A33] shrink-0" />
+                        <span className="truncate">
+                          {selectedJudge.station}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-200/80">
+                        <FaMapMarkerAlt className="text-[#C69A33] shrink-0" />
+                        <span>Region: {selectedJudge.region}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

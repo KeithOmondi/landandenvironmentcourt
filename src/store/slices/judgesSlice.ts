@@ -8,6 +8,11 @@
 //   - Admin writes: create / update / submit / delete.
 //   - Super admin writes: approve / reject.
 //
+// Authorization is enforced by the backend, not here. Both admins and
+// super admins dispatch the same thunks; the server decides who may
+// act on which record. The UI renders buttons the caller is allowed
+// to use, but the slice doesn't gate anything.
+//
 // Image handling:
 //   - Portraits are uploaded through the admin panel as part of the
 //     create/update request. The route uses multer on the server; the
@@ -23,8 +28,7 @@
 //
 // All HTTP lives in THIS file via `axiosClient` from `src/api/api.ts`.
 // This slice only coordinates loading flags, stores results, and
-// surfaces errors. It does not own authorization — the backend
-// enforces that.
+// surfaces errors.
 //
 // Route prefix: app.use('/api/v1/judges', judgesRoutes)
 //   GET    /api/v1/judges
@@ -280,6 +284,52 @@ const unwrap = <T>(response: AxiosResponse<ApiEnvelope<T> | T>): T => {
 };
 
 /**
+ * Project a full `Judge` down to the `JudgeSummary` shape held in
+ * `adminItems` and `pendingItems`.
+ *
+ * Every mutation thunk (`update`, `submit`, `approve`, `reject`)
+ * returns the full record. The list state holds summaries. Rather than
+ * merge field-by-field at each callsite, project once here.
+ *
+ * TypeScript enforces completeness: `JudgeSummary` has no optional
+ * fields, so if a field is added to the type and not to this function,
+ * the return type doesn't match and the build fails. That's the point
+ * — a silent omission is the bug we're protecting against.
+ */
+const toSummary = (judge: Judge): JudgeSummary => ({
+  id:              judge.id,
+  name:            judge.name,
+  title:           judge.title,
+  station:         judge.station,
+  region:          judge.region,
+  appointedYear:   judge.appointedYear,
+  bio:             judge.bio,
+  education:       judge.education,
+  specializations: judge.specializations,
+  image:           judge.image,
+  status:          judge.status,
+  publishedAt:     judge.publishedAt,
+  createdAt:       judge.createdAt,
+  updatedAt:       judge.updatedAt,
+});
+
+/**
+ * Replace one item in a list by id, or append it if not present.
+ * Used by mutation reducers to keep list state in sync without a
+ * refetch.
+ */
+const replaceOrAppend = (
+  list: JudgeSummary[],
+  next: JudgeSummary,
+): JudgeSummary[] => {
+  const index = list.findIndex((item) => item.id === next.id);
+  if (index === -1) return [...list, next];
+  const copy = list.slice();
+  copy[index] = next;
+  return copy;
+};
+
+/**
  * Build the multipart body for create/update.
  *
  * - `payload` is serialized to a JSON string. The server parses it
@@ -291,7 +341,9 @@ const unwrap = <T>(response: AxiosResponse<ApiEnvelope<T> | T>): T => {
  *
  * Do NOT set `Content-Type` manually on the axios call. The browser
  * must inject the multipart boundary; overriding the header strips it
- * and the server rejects the request with "Boundary not found".
+ * and the server rejects the request with "Boundary not found". The
+ * axios instance in `api.ts` deliberately has no default
+ * Content-Type for exactly this reason.
  */
 const buildJudgeFormData = (
   payload: Partial<JudgeInput>,
@@ -452,8 +504,8 @@ export const updateJudge = createAsyncThunk(
 //   },
 // );
 //
-// and add an `addCase(clearJudgeImage.fulfilled, ...)` block alongside
-// the `updateJudge` one, updating both `current` and `adminItems`.
+// and add a reducer case alongside `updateJudge.fulfilled` that uses
+// `toSummary(action.payload)` for `adminItems` and sets `current`.
 
 export const submitJudge = createAsyncThunk(
   'judges/submitJudge',
@@ -653,8 +705,9 @@ const judgesSlice = createSlice({
       // ── Create ────────────────────────────────────────────────────────────
       //
       // `current` is set because create is triggered from the editor.
-      // The editor is the surface that consumed the previous value, so
-      // replacing it with the new server response is correct.
+      // The editor consumes that value, so replacing it with the server
+      // response is correct. `adminItems` is not touched: the list is
+      // refetched by the caller if it needs to show the new row.
       .addCase(createJudge.pending, (state) => {
         state.isSaving = true;
         state.saveError = null;
@@ -676,10 +729,10 @@ const judgesSlice = createSlice({
 
       // ── Update ────────────────────────────────────────────────────────────
       //
-      // Same reasoning as create: the editor initiated this, so `current`
-      // is the right place to reflect the response. `adminItems` is
-      // patched in place so the list view stays consistent without a
-      // refetch.
+      // The editor initiated this, so `current` reflects the response.
+      // `adminItems` is patched via `replaceOrAppend(toSummary(...))`
+      // so the list shows the new values without a refetch, and the
+      // projection is compiler-checked against `JudgeSummary`.
       .addCase(updateJudge.pending, (state) => {
         state.isSaving = true;
         state.saveError = null;
@@ -691,24 +744,9 @@ const judgesSlice = createSlice({
           state.isSaving = false;
           state.saveSuccess = true;
           state.current = action.payload;
-          state.adminItems = state.adminItems.map((item) =>
-            item.id === action.payload.id
-              ? {
-                  ...item,
-                  name: action.payload.name,
-                  title: action.payload.title,
-                  station: action.payload.station,
-                  region: action.payload.region,
-                  appointedYear: action.payload.appointedYear,
-                  bio: action.payload.bio,
-                  education: action.payload.education,
-                  specializations: action.payload.specializations,
-                  image: action.payload.image,
-                  status: action.payload.status,
-                  publishedAt: action.payload.publishedAt,
-                  updatedAt: action.payload.updatedAt,
-                }
-              : item,
+          state.adminItems = replaceOrAppend(
+            state.adminItems,
+            toSummary(action.payload),
           );
         },
       )
@@ -722,15 +760,12 @@ const judgesSlice = createSlice({
       //
       // Submit is a row-level action, NOT an editor action. The user
       // clicks Submit on a table row; the editor may be open on a
-      // different judge, or not open at all. Setting `current` here
-      // would silently replace whatever the editor is showing with a
-      // different record — a real bug that surfaces as "I opened judge
-      // A, clicked Submit on judge B, and now the form shows B's data".
+      // different judge. Setting `current` here would silently replace
+      // whatever the editor is showing with a different record.
       //
-      // Only `adminItems` is updated. `isSaving` and `saveSuccess` are
-      // reused because the slice has no separate flags for row actions
-      // and adding them would touch every consumer; the transient
-      // success banner is acceptable feedback for a submit.
+      // Only `adminItems` is updated. `isSaving` / `saveSuccess` are
+      // reused because the slice has no separate flags for row actions;
+      // the transient success banner is acceptable feedback.
       .addCase(submitJudge.pending, (state) => {
         state.isSaving = true;
         state.saveError = null;
@@ -741,14 +776,9 @@ const judgesSlice = createSlice({
         (state, action: PayloadAction<Judge>) => {
           state.isSaving = false;
           state.saveSuccess = true;
-          state.adminItems = state.adminItems.map((item) =>
-            item.id === action.payload.id
-              ? {
-                  ...item,
-                  status: action.payload.status,
-                  updatedAt: action.payload.updatedAt,
-                }
-              : item,
+          state.adminItems = replaceOrAppend(
+            state.adminItems,
+            toSummary(action.payload),
           );
         },
       )
@@ -759,6 +789,10 @@ const judgesSlice = createSlice({
       })
 
       // ── Delete ────────────────────────────────────────────────────────────
+      //
+      // Remove from both list states. If the deleted record is the one
+      // open in the editor, clear `current` so the editor doesn't keep
+      // showing a record that no longer exists.
       .addCase(deleteJudge.pending, (state) => {
         state.isDeleting = true;
         state.deleteError = null;
@@ -768,6 +802,9 @@ const judgesSlice = createSlice({
         (state, action: PayloadAction<string>) => {
           state.isDeleting = false;
           state.adminItems = state.adminItems.filter(
+            (item) => item.id !== action.payload,
+          );
+          state.pendingItems = state.pendingItems.filter(
             (item) => item.id !== action.payload,
           );
           if (state.current?.id === action.payload) {
@@ -782,8 +819,9 @@ const judgesSlice = createSlice({
 
       // ── Approve ───────────────────────────────────────────────────────────
       //
-      // Review actions are row-level, not editor-level. Same reasoning
-      // as submit: no `current` mutation.
+      // Review actions are row-level. Removing from `pendingItems` is
+      // correct: an approved record is no longer pending. `adminItems`
+      // gets the updated summary.
       .addCase(approveJudge.pending, (state) => {
         state.isReviewing = true;
         state.reviewError = null;
@@ -797,15 +835,9 @@ const judgesSlice = createSlice({
           state.pendingItems = state.pendingItems.filter(
             (item) => item.id !== action.payload.id,
           );
-          state.adminItems = state.adminItems.map((item) =>
-            item.id === action.payload.id
-              ? {
-                  ...item,
-                  status: action.payload.status,
-                  publishedAt: action.payload.publishedAt,
-                  updatedAt: action.payload.updatedAt,
-                }
-              : item,
+          state.adminItems = replaceOrAppend(
+            state.adminItems,
+            toSummary(action.payload),
           );
         },
       )
@@ -829,14 +861,9 @@ const judgesSlice = createSlice({
           state.pendingItems = state.pendingItems.filter(
             (item) => item.id !== action.payload.id,
           );
-          state.adminItems = state.adminItems.map((item) =>
-            item.id === action.payload.id
-              ? {
-                  ...item,
-                  status: action.payload.status,
-                  updatedAt: action.payload.updatedAt,
-                }
-              : item,
+          state.adminItems = replaceOrAppend(
+            state.adminItems,
+            toSummary(action.payload),
           );
         },
       )

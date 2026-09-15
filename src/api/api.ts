@@ -24,12 +24,23 @@ interface CustomAxiosRequestConfig extends AxiosRequestConfig {
   _retry?: boolean;
 }
 
+// ─── Axios client ──────────────────────────────────────────────────────────
+//
+// NO default `Content-Type` header. Axios sets it per-request based on
+// the body it's given:
+//   - Plain object          → 'application/json' (and it JSON-stringifies)
+//   - FormData              → 'multipart/form-data; boundary=…' (and the
+//                             browser injects the boundary and file bytes)
+//   - URLSearchParams       → 'application/x-www-form-urlencoded'
+//
+// If a default 'application/json' is set here, it wins over the FormData
+// detection on some axios versions and the server receives a JSON
+// content-type with a multipart body — multer sees nothing, `req.file`
+// stays undefined, and uploads silently fall through to "no image".
+// That's exactly the bug this omission fixes.
 export const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '',
   timeout: 60000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
   withCredentials: true,
 });
 
@@ -44,7 +55,7 @@ axiosClient.interceptors.request.use(
     }
 
     const accessToken = storeRef?.getState().auth.accessToken;
-    
+
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
@@ -77,17 +88,24 @@ axiosClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Attempt to refresh the token
+        // Attempt to refresh the token.
+        //
+        // This request is intentionally made with the bare `axios` import,
+        // not `axiosClient`. If it used `axiosClient`, the response
+        // interceptor would run again on a 401 and recurse — the
+        // `isRefreshRequest` guard would catch it, but going through the
+        // bare import is clearer. We set Content-Type explicitly here
+        // because we're sending an empty JSON body ({}), not FormData.
         const response = await axios.post(
           `${axiosClient.defaults.baseURL}/auth/refresh`,
           {},
-          { 
-            withCredentials: true, 
+          {
+            withCredentials: true,
             timeout: 10000,
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-            }
+            },
           }
         );
 
