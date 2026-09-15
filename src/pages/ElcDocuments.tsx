@@ -4,11 +4,23 @@
 //
 //   - Lists published documents (fetchPublishedDocuments).
 //   - Search box and both dropdowns drive server-side queries.
-//   - Preview modal reads from the already-fetched row — no second
-//     request per open, because the summary carries everything the
-//     modal shows.
-//   - No preview pages here. Documents are operational files; the
-//     modal is a metadata card plus a download button.
+//   - "View" opens the PDF inline in a full-screen modal. The browser's
+//     native PDF viewer handles pagination, zoom, and download.
+//   - "Details" opens a compact metadata card: title, station, date,
+//     size, description, plus a button to jump to the inline viewer.
+//   - "Open in new tab" is available from inside the viewer for users
+//     who prefer the browser's own tab chrome.
+//
+// URLs stored on the row are Cloudinary `f_pdf` delivery URLs. The
+// `f_pdf` transformation tells Cloudinary to serve the PDF itself
+// rather than rendering page 1 as an image. PDF delivery must be
+// enabled in the Cloudinary account (Settings → Security) for these
+// URLs to return 200; a 401 from Cloudinary means the toggle is off.
+//
+// The `download` HTML attribute is deliberately NOT used on the anchor
+// buttons. Browsers ignore it for cross-origin URLs, and Cloudinary is
+// a different origin. The browser's PDF viewer provides a download
+// control instead — every major browser's PDF viewer has one.
 
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -16,12 +28,13 @@ import {
   FaFilePdf,
   FaSearch,
   FaFilter,
-  FaDownload,
+  FaExternalLinkAlt,
   FaEye,
   FaFolder,
   FaCalendarAlt,
   FaTimes,
   FaFileAlt,
+  FaInfoCircle,
 } from 'react-icons/fa';
 import {
   fetchPublishedDocuments,
@@ -75,9 +88,12 @@ const ElcDocuments: React.FC = () => {
   const [selectedStation, setSelectedStation] = useState<
     'All' | DocumentStation
   >('All');
-  const [activeDoc, setActiveDoc] = useState<PublicDocumentSummary | null>(
+  /** Document open in the inline PDF viewer. */
+  const [previewDoc, setPreviewDoc] = useState<PublicDocumentSummary | null>(
     null,
   );
+  /** Document open in the metadata info modal. */
+  const [infoDoc, setInfoDoc] = useState<PublicDocumentSummary | null>(null);
   const [page, setPage] = useState(1);
   const limit = 12;
 
@@ -102,6 +118,26 @@ const ElcDocuments: React.FC = () => {
       }),
     );
   }, [dispatch, page, searchTerm, selectedCategory, selectedStation]);
+
+  // Close the preview modal on Escape.
+  useEffect(() => {
+    if (!previewDoc) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewDoc(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [previewDoc]);
+
+  // Close the info modal on Escape.
+  useEffect(() => {
+    if (!infoDoc) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setInfoDoc(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [infoDoc]);
 
   // ── Derived data ───────────────────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(publicTotal / limit));
@@ -327,20 +363,20 @@ const ElcDocuments: React.FC = () => {
 
                     <div className="flex items-center gap-2 pt-1">
                       <button
-                        onClick={() => setActiveDoc(doc)}
-                        className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                      >
-                        <FaEye /> Preview
-                      </button>
-                      <a
-                        href={doc.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        download
+                        type="button"
+                        onClick={() => setPreviewDoc(doc)}
                         className="flex-1 py-2 px-3 rounded-xl bg-[#061e14] hover:bg-slate-800 text-white text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-colors"
                       >
-                        <FaDownload className="text-[#D4AF37]" /> Download
-                      </a>
+                        <FaEye className="text-[#D4AF37]" /> View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInfoDoc(doc)}
+                        className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                        aria-label={`Show details for ${doc.title}`}
+                      >
+                        <FaInfoCircle /> Details
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -375,24 +411,84 @@ const ElcDocuments: React.FC = () => {
         )}
       </div>
 
-      {/* ================= PREVIEW MODAL ================= */}
-      {activeDoc && (
+      {/* ================= PDF PREVIEW MODAL =================
+          A full-screen viewer. The iframe points at the Cloudinary
+          `f_pdf` URL; the browser's native PDF viewer renders the PDF
+          inline, with pagination, zoom, and a download control. */}
+      {previewDoc && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn"
-          onClick={() => setActiveDoc(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+          onClick={() => setPreviewDoc(null)}
         >
           <div
-            className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full overflow-hidden relative"
+            className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-5xl h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-[#061e14] text-white px-6 py-4 flex items-center justify-between border-b border-[#C69A33]/30 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <FaFilePdf className="text-red-500 text-lg shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-sm font-serif font-bold truncate">
+                    {previewDoc.title}
+                  </h3>
+                  <p className="text-[11px] font-mono text-[#D4AF37] truncate">
+                    {previewDoc.category} · {previewDoc.station}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={previewDoc.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-mono font-semibold transition-colors"
+                >
+                  <FaExternalLinkAlt className="w-3 h-3" />
+                  Open in new tab
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDoc(null)}
+                  className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  aria-label="Close preview"
+                >
+                  <FaTimes className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* PDF iframe. The browser's PDF viewer fills this area. */}
+            <div className="flex-1 bg-slate-100">
+              <iframe
+                src={previewDoc.fileUrl}
+                title={previewDoc.title}
+                className="w-full h-full border-0"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= METADATA INFO MODAL ================= */}
+      {infoDoc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md"
+          onClick={() => setInfoDoc(null)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-xl w-full overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-[#061e14] text-white px-6 py-4 flex items-center justify-between border-b border-[#C69A33]/30">
               <div className="flex items-center gap-2 text-xs font-mono tracking-wider uppercase text-[#D4AF37]">
-                <FaFilePdf className="text-red-500 text-base" />
+                <FaInfoCircle className="text-base" />
                 <span>Document Details</span>
               </div>
               <button
-                onClick={() => setActiveDoc(null)}
+                onClick={() => setInfoDoc(null)}
                 className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label="Close details"
               >
                 <FaTimes className="w-4 h-4" />
               </button>
@@ -400,23 +496,23 @@ const ElcDocuments: React.FC = () => {
 
             <div className="p-6 space-y-4">
               <span className="inline-block px-2.5 py-1 rounded-md bg-[#061e14]/10 text-[#061e14] text-xs font-mono font-bold">
-                {activeDoc.category}
+                {infoDoc.category}
               </span>
 
               <h3 className="text-xl font-serif font-bold text-slate-900">
-                {activeDoc.title}
+                {infoDoc.title}
               </h3>
 
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs text-slate-600 font-mono">
                 <p>
-                  <strong>Station:</strong> {activeDoc.station}
+                  <strong>Station:</strong> {infoDoc.station}
                 </p>
                 <p>
                   <strong>Issue Date:</strong>{' '}
-                  {formatIssuedAt(activeDoc.issuedAt)}
+                  {formatIssuedAt(infoDoc.issuedAt)}
                 </p>
                 <p>
-                  <strong>File Size:</strong> {activeDoc.fileSize}
+                  <strong>File Size:</strong> {infoDoc.fileSize}
                 </p>
               </div>
 
@@ -425,27 +521,28 @@ const ElcDocuments: React.FC = () => {
                   Summary
                 </h4>
                 <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  {activeDoc.description}
+                  {infoDoc.description}
                 </p>
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
               <button
-                onClick={() => setActiveDoc(null)}
+                onClick={() => setInfoDoc(null)}
                 className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-mono text-xs font-semibold"
               >
                 Close
               </button>
-              <a
-                href={activeDoc.fileUrl}
-                target="_blank"
-                rel="noreferrer"
-                download
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviewDoc(infoDoc);
+                  setInfoDoc(null);
+                }}
                 className="px-5 py-2 rounded-xl bg-[#061e14] hover:bg-slate-800 text-white font-mono text-xs font-bold flex items-center gap-2 transition-colors"
               >
-                <FaDownload className="text-[#D4AF37]" /> Download File
-              </a>
+                <FaEye className="text-[#D4AF37]" /> View Document
+              </button>
             </div>
           </div>
         </div>
