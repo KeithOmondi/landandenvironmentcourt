@@ -10,6 +10,11 @@
 // It does NOT create, edit, submit, or delete — those are AdminJudges
 // concerns. Judges have no featured flag, so there is no feature toggle
 // here. All HTTP lives in the slice.
+//
+// Portraits are read-only on this page. The reviewer sees the existing
+// image (if any) as a small avatar, or initials when there is none.
+// Uploading, replacing, and clearing portraits happen in AdminJudges.
+// Reviewers do not interact with Cloudinary at all.
 
 import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -127,9 +132,9 @@ const PendingRow = ({ item, busy, onApprove, onReject }: PendingRowProps) => (
   <tr className="border-b border-gray-100">
     <td className="px-3 py-2">
       <div className="flex items-center gap-3">
-        {item.imageUrl ? (
+        {item.image?.url ? (
           <img
-            src={item.imageUrl}
+            src={item.image.url}
             alt=""
             className="h-10 w-10 rounded-full object-cover object-top"
           />
@@ -181,9 +186,9 @@ const PublishedRow = ({ item }: { item: JudgeSummary }) => (
   <tr className="border-b border-gray-100">
     <td className="px-3 py-2">
       <div className="flex items-center gap-3">
-        {item.imageUrl ? (
+        {item.image?.url ? (
           <img
-            src={item.imageUrl}
+            src={item.image.url}
             alt=""
             className="h-10 w-10 rounded-full object-cover object-top"
           />

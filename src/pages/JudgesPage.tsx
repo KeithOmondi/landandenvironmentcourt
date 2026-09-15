@@ -6,6 +6,11 @@
 //   - Search box and region dropdown drive server-side queries.
 //   - Profile modal reads from the already-fetched row — the summary
 //     carries the whole record, so no second request per open.
+//
+// Portraits are rendered from `judge.image.url`, which is the
+// Cloudinary delivery URL. When a judge has no portrait (`image` is
+// null), the card falls back to initials on the existing gradient —
+// same pattern as the admin and super-admin listings.
 
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -38,8 +43,10 @@ import type { AppDispatch, RootState } from '../store/store';
  * Angote, MBS" renders as "AM" (Angote + MBS is wrong, but Angote alone
  * is more informative than the title words).
  *
- * The exact algorithm matters less than the fallback existing — most
- * records will have an empty imageUrl until portraits are uploaded.
+ * The exact algorithm matters less than the fallback existing. Not
+ * every judge has an uploaded portrait, and forcing every record to
+ * have one before it can be published would be a policy decision
+ * nobody asked for.
  */
 const initials = (name: string): string => {
   const parts = name
@@ -293,9 +300,9 @@ const JudgesPage: React.FC = () => {
                   className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col group cursor-pointer"
                 >
                   <div className="relative h-64 w-full bg-gradient-to-br from-[#061e14] to-slate-900 overflow-hidden">
-                    {judge.imageUrl ? (
+                    {judge.image?.url ? (
                       <img
-                        src={judge.imageUrl}
+                        src={judge.image.url}
                         alt={judge.name}
                         className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
                       />
