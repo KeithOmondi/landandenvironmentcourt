@@ -11,12 +11,24 @@
 //     The backend enforces the role; we just don't render controls the
 //     user can't use.
 //
+// Portraits:
+//   - The image is NOT part of the `form` state; it's a separate `File`
+//     staged by the file input and sent alongside the payload.
+//   - On update, "no new file picked" means "leave the existing
+//     portrait alone". The server receives no `image` field in that
+//     case.
+//   - There is currently NO way to clear an existing portrait from this
+//     UI. The service supports it (`image: null`), but no route exposes
+//     it. The "Remove file" control below only discards a locally
+//     staged file — it does not delete the server-side portrait.
+//
 // The editor is the most involved of the six features: education is a
-// repeatable sub-form, specializations is a tag input. Both are
-// structured but the base pattern (controlled inputs, no setState in
-// effects, editor remount via key) is the same as the others.
+// repeatable sub-form, specializations is a tag input, and the portrait
+// is a file input with a preview. The base pattern (controlled inputs,
+// no setState in effects, editor remount via key) is the same as the
+// others.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchAllJudges,
@@ -66,7 +78,6 @@ const emptyInput = (): JudgeInput => ({
   bio: '',
   education: [{ degree: '', institution: '' }],
   specializations: [],
-  imageUrl: '',
 });
 
 const formFromJudge = (judge: Judge | null): JudgeInput =>
@@ -84,7 +95,6 @@ const formFromJudge = (judge: Judge | null): JudgeInput =>
             ? judge.education.map((e) => ({ ...e }))
             : [{ degree: '', institution: '' }],
         specializations: [...judge.specializations],
-        imageUrl: judge.imageUrl,
       }
     : emptyInput();
 
@@ -277,6 +287,113 @@ const SpecializationsEditor = ({
   );
 };
 
+// ─── Portrait picker ─────────────────────────────────────────────────────────
+//
+// File input + preview. The preview shows:
+//   1. The locally staged file, if one has been picked (object URL).
+//   2. Otherwise the existing server-side portrait, if any.
+//   3. Otherwise a neutral placeholder.
+//
+// The object URL for a staged file is revoked when the file changes or
+// the component unmounts. Failing to revoke leaks the blob.
+//
+// "Remove file" only clears the locally staged file. It does NOT delete
+// the server-side portrait. There is no route for that today.
+
+interface PortraitPickerProps {
+  existingImageUrl: string | null;
+  stagedFile: File | null;
+  onPickFile: (file: File | null) => void;
+}
+
+const PortraitPicker = ({
+  existingImageUrl,
+  stagedFile,
+  onPickFile,
+}: PortraitPickerProps) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Derive the preview URL during render. No state, no effect, no
+  // cascading renders — the URL is a pure function of `stagedFile`.
+  const previewUrl = useMemo(
+    () => (stagedFile ? URL.createObjectURL(stagedFile) : null),
+    [stagedFile],
+  );
+
+  // The effect's only job is to revoke the URL when it's no longer
+  // needed. It does NOT call setState.
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    onPickFile(file);
+    // Reset the input so picking the same file twice fires onChange.
+    e.target.value = '';
+  };
+
+  const handleRemove = () => {
+    onPickFile(null);
+  };
+
+  const shownUrl = previewUrl ?? existingImageUrl;
+
+  return (
+    <div className="space-y-2">
+      <span className="text-xs font-medium text-gray-600">Portrait</span>
+
+      <div className="flex items-center gap-4">
+        {shownUrl ? (
+          <img
+            src={shownUrl}
+            alt=""
+            className="h-16 w-16 rounded object-cover object-top border border-gray-200"
+          />
+        ) : (
+          <div className="h-16 w-16 rounded border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-[10px] text-gray-400 text-center px-1">
+            No portrait
+          </div>
+        )}
+
+        <div className="flex flex-col gap-1.5">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleChange}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="rounded border border-gray-300 px-3 py-1.5 text-xs hover:bg-gray-50"
+          >
+            {stagedFile ? 'Choose a different file' : 'Choose image…'}
+          </button>
+
+          {stagedFile && (
+            <button
+              type="button"
+              onClick={handleRemove}
+              className="text-xs text-red-700 hover:underline text-left"
+            >
+              Remove selected file
+            </button>
+          )}
+
+          {!stagedFile && existingImageUrl && (
+            <p className="text-[10px] text-gray-500">
+              Existing portrait will be kept unless you pick a new file.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Editor ──────────────────────────────────────────────────────────────────
 //
 // Rendered with `key={judge?.id ?? 'new'}` from the parent, so switching
@@ -294,6 +411,9 @@ const JudgeEditor = ({ judge, onClose }: EditorProps) => {
   );
 
   const [form, setForm] = useState<JudgeInput>(() => formFromJudge(judge));
+  // Staged file, if the user picked one. Never sent on update unless
+  // non-null.
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -307,11 +427,19 @@ const JudgeEditor = ({ judge, onClose }: EditorProps) => {
   const handleSave = async () => {
     try {
       if (judge) {
+        // `imageFile` is `null` when unchanged → the slice sends
+        // `undefined` → the server treats it as "leave alone".
         await dispatch(
-          updateJudge({ judgeId: judge.id, payload: form }),
+          updateJudge({
+            judgeId: judge.id,
+            payload: form,
+            image: imageFile ?? undefined,
+          }),
         ).unwrap();
       } else {
-        await dispatch(createJudge(form)).unwrap();
+        await dispatch(
+          createJudge({ payload: form, image: imageFile ?? undefined }),
+        ).unwrap();
       }
     } catch {
       // The slice has already recorded saveError.
@@ -411,16 +539,11 @@ const JudgeEditor = ({ judge, onClose }: EditorProps) => {
           }
         />
 
-        <label className="text-xs text-gray-600">
-          Portrait URL (optional)
-          <input
-            name="imageUrl"
-            value={form.imageUrl}
-            onChange={handleChange}
-            placeholder="https://…"
-            className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          />
-        </label>
+        <PortraitPicker
+          existingImageUrl={judge?.image?.url ?? null}
+          stagedFile={imageFile}
+          onPickFile={setImageFile}
+        />
 
         {saveError && <p className="text-sm text-red-600">{saveError}</p>}
         {saveSuccess && <p className="text-sm text-green-600">Saved.</p>}
@@ -478,9 +601,9 @@ const JudgeRow = ({ item, isSuperAdmin, onEdit }: RowProps) => {
     <tr className="border-b border-gray-100">
       <td className="px-3 py-2">
         <div className="flex items-center gap-3">
-          {item.imageUrl ? (
+          {item.image?.url ? (
             <img
-              src={item.imageUrl}
+              src={item.image.url}
               alt=""
               className="h-10 w-10 rounded-full object-cover object-top"
             />

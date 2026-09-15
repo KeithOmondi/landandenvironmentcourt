@@ -6,7 +6,6 @@ import {
   FaTasks, 
   FaTrophy, 
   FaQuoteLeft,
-  FaHistory,
   FaCalendarAlt,
   FaTimes,
   FaIdCard,
@@ -56,64 +55,7 @@ const achievementsList = [
   'Standardized ELC bench procedures and guidelines across all sub-registries.'
 ];
 
-const previousJudges: Judge[] = [
-  {
-    id: '1',
-    name: 'Hon. Lady Justice Lydia Achode, JA',
-    tenure: '2018 – 2022',
-    station: 'Court of Appeal / Formerly High Court ELC Principal Judge',
-    shortBio: 'Served as Principal Judge driving key administrative reforms and automation before elevation.',
-    fullBio: 'Hon. Lady Justice Lydia Achode served with distinction as the Principal Judge, spearheading the digitization of cause lists and case tracking systems across High Court and ELC stations nationwide. Her leadership established key performance indicators for case clearance and administrative compliance.',
-    keyContributions: [
-      'Spearheaded the nationwide rollout of digital registry e-filing.',
-      'Established regional judicial monitoring committees for ELC benches.',
-      'Championed continuous judicial education programs on environmental rights.'
-    ],
-    image: '',
-  },
-  {
-    id: '2',
-    name: 'Hon. Justice Richard Mwongo, CBS',
-    tenure: '2012 – 2018',
-    station: 'Environment and Land Court - Naivasha',
-    shortBio: 'Pioneered foundational operational structures and early expansion of specialized environmental benches.',
-    fullBio: 'Hon. Justice Richard Mwongo, CBS, played a pivotal role during the early post-2010 constitutional transitional phase. As an early Principal Judge, he was instrumental in establishing operational guidelines and stationing pioneer ELC Judges to strategic sub-county stations.',
-    keyContributions: [
-      'Formulated early operational guidelines for the Environment and Land Court Act.',
-      'Expanded operational ELC sub-registries from 5 to over 20 counties.',
-      'Fostered key partnerships with national environmental management agencies.'
-    ],
-    image: '',
-  },
-  {
-    id: '3',
-    name: 'Hon. Justice Samson Okong’o',
-    tenure: '2017 – 2022',
-    station: 'Environment and Land Court - Environment Bench',
-    shortBio: 'Oversee specialized environmental dispute workflows and expanding court station coverage.',
-    fullBio: 'Hon. Justice Samson Okong’o oversaw significant structural scaling during his leadership tenure. He focused heavily on environmental jurisprudence standards, land dispute mediation mechanisms, and reducing backlog in major urban registries.',
-    keyContributions: [
-      'Pioneered Environment & Land Court Alternative Dispute Resolution (ADR) guidelines.',
-      'Oversee fast-tracking of public land recovery litigation.',
-      'Standardized bench rulings on environmental impact assessment disputes.'
-    ],
-    image: '',
-  },
-  {
-    id: '4',
-    name: 'Hon. Justice Stephen Mukunya',
-    tenure: '2012 – 2017',
-    station: 'Environment and Land Court - Founding Bench',
-    shortBio: 'Structured the initial deployment of judicial officers across newly established ELC benches.',
-    fullBio: 'Hon. Justice Stephen Mukunya served as a founding pioneer in setting up ELC administrative registries. His tenure laid down procedural foundations, land registration case rules, and inter-agency coordination with the Ministry of Lands.',
-    keyContributions: [
-      'Drafted initial registry filing protocols for land title cancellation disputes.',
-      'Structured pioneer bench assignments across regional hubs.',
-      'Promoted public legal aid awareness for rural land ownership cases.'
-    ],
-    image: '',
-  },
-];
+
 
 const OfficePJ: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'roles' | 'achievements'>('roles');
@@ -279,70 +221,7 @@ const OfficePJ: React.FC = () => {
           )}
         </div>
 
-        {/* ================= PREVIOUS PRINCIPAL JUDGES (CLICKABLE CARDS) ================= */}
-        <div className="space-y-10 pt-10 border-t border-slate-200">
-          <div className="text-center space-y-2">
-            <div className="inline-flex items-center gap-2 text-xs font-mono font-bold text-[#C69A33] uppercase tracking-wider">
-              <FaHistory />
-              <span>Judicial Heritage</span>
-            </div>
-            <h2 className="text-3xl font-serif font-bold text-slate-900">
-              Previous Principal Judges
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto">
-              Click on any judge profile card below to view full judicial credentials, tenure details, and key contributions.
-            </p>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-            {previousJudges.map((judge) => (
-              <div 
-                key={judge.id}
-                onClick={() => setSelectedJudge(judge)}
-                className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col group cursor-pointer"
-              >
-                {/* Image Box */}
-                <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-slate-900 shrink-0">
-                  <img 
-                    src={judge.image} 
-                    alt={judge.name} 
-                    className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
-                  
-                  {/* Floating Gold Tenure Badge */}
-                  <div className="absolute top-3 right-3 bg-[#061e14]/90 backdrop-blur-md border border-[#C69A33]/50 px-2.5 py-1 rounded-full shadow-md">
-                    <span className="text-[10px] sm:text-xs font-mono font-bold text-[#D4AF37]">
-                      {judge.tenure}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Content Box */}
-                <div className="p-5 flex flex-col justify-between flex-grow space-y-3 bg-white">
-                  <div className="space-y-1.5">
-                    <h3 className="text-base font-serif font-bold text-slate-900 group-hover:text-[#061e14] transition-colors line-clamp-2">
-                      {judge.name}
-                    </h3>
-                    <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
-                      {judge.shortBio}
-                    </p>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-mono text-[#C69A33] font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <FaGavel className="w-3 h-3" />
-                      <span>Former Principal Judge</span>
-                    </span>
-                    <span className="underline underline-offset-2 text-[#061e14] group-hover:text-[#C69A33] transition-colors">
-                      View ID Card &rarr;
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
       </div>
 

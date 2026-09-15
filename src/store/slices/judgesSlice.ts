@@ -8,8 +8,16 @@
 //   - Admin writes: create / update / submit / delete.
 //   - Super admin writes: approve / reject.
 //
-// No upload — judge portraits are external URLs, not Cloudinary
-// uploads. If that changes, mirror the News upload pattern.
+// Image handling:
+//   - Portraits are uploaded through the admin panel as part of the
+//     create/update request. The route uses multer on the server; the
+//     slice sends multipart/form-data.
+//   - The image is NOT part of the `payload` JSON. It travels as a
+//     sibling `image` field in the FormData.
+//   - On update, omitting the image means "leave the existing portrait
+//     alone" (the server treats a missing file as undefined).
+//   - There is no client-side "clear portrait" action yet; the server
+//     supports it via `image: null`, but no route exposes it.
 //
 // All HTTP lives in THIS file via `axiosClient` from `src/api/api.ts`.
 // This slice only coordinates loading flags, stores results, and
@@ -22,8 +30,8 @@
 //   GET    /api/v1/judges/admin/all
 //   GET    /api/v1/judges/admin/pending
 //   GET    /api/v1/judges/admin/:judgeId
-//   POST   /api/v1/judges/admin
-//   PATCH  /api/v1/judges/admin/:judgeId
+//   POST   /api/v1/judges/admin                      (multipart)
+//   PATCH  /api/v1/judges/admin/:judgeId             (multipart)
 //   POST   /api/v1/judges/admin/:judgeId/submit
 //   DELETE /api/v1/judges/admin/:judgeId
 //   POST   /api/v1/judges/admin/:judgeId/approve
@@ -63,6 +71,16 @@ export interface EducationEntry {
   year?: string;
 }
 
+/**
+ * A Cloudinary image reference. Mirrors `ImageAsset` on the backend.
+ * Both fields are always present together — a row with only one is a
+ * server-side data bug that the server logs and downgrades to `null`.
+ */
+export interface ImageAsset {
+  publicId: string;
+  url: string;
+}
+
 export interface Judge {
   id: string;
   name: string;
@@ -73,7 +91,7 @@ export interface Judge {
   bio: string;
   education: EducationEntry[];
   specializations: string[];
-  imageUrl: string;
+  image: ImageAsset | null;
   status: JudgeStatus;
   publishedAt: string | null;
 
@@ -92,6 +110,11 @@ export type PublicJudge = Omit<
   'reviewNote' | 'reviewedBy' | 'reviewedAt' | 'createdBy' | 'createdByRole'
 >;
 
+/**
+ * Editable shape sent to the server. The image is NOT here — it's a
+ * separate `File` argument on create/update, because it can't travel
+ * as JSON inside a multipart request.
+ */
 export interface JudgeInput {
   name: string;
   title: string;
@@ -101,7 +124,6 @@ export interface JudgeInput {
   bio: string;
   education: EducationEntry[];
   specializations: string[];
-  imageUrl: string;
 }
 
 export interface JudgeSummary {
@@ -114,7 +136,7 @@ export interface JudgeSummary {
   bio: string;
   education: EducationEntry[];
   specializations: string[];
-  imageUrl: string;
+  image: ImageAsset | null;
   status: JudgeStatus;
   publishedAt: string | null;
   createdAt: string;
@@ -252,6 +274,32 @@ const unwrap = <T>(response: AxiosResponse<ApiEnvelope<T> | T>): T => {
   return body as T;
 };
 
+/**
+ * Build the multipart body for create/update.
+ *
+ * - `payload` is serialized to a JSON string. The server parses it
+ *   back into an object before validation. This is necessary because
+ *   multipart fields are flat strings — a nested object can't travel
+ *   as-is.
+ * - `image` is appended only when a File is provided. Omitting it
+ *   means "no image change" on the server.
+ *
+ * Do NOT set `Content-Type` manually on the axios call. The browser
+ * must inject the multipart boundary; overriding the header strips it
+ * and the server rejects the request with "Boundary not found".
+ */
+const buildJudgeFormData = (
+  payload: Partial<JudgeInput>,
+  image?: File | null,
+): FormData => {
+  const form = new FormData();
+  form.append('payload', JSON.stringify(payload));
+  if (image) {
+    form.append('image', image);
+  }
+  return form;
+};
+
 // Base path — must match `app.use('/api/v1/judges', judgesRoutes)`.
 // `axiosClient` already carries the `/api/v1` prefix on its baseURL.
 const JUDGES_BASE = '/judges';
@@ -335,12 +383,16 @@ export const fetchJudgeById = createAsyncThunk(
 
 export const createJudge = createAsyncThunk(
   'judges/createJudge',
-  async (payload: JudgeInput, { rejectWithValue }) => {
+  async (
+    args: { payload: JudgeInput; image?: File | null },
+    { rejectWithValue },
+  ) => {
     try {
-      // Route expects Body: { payload: JudgeInput }
+      // Route expects multipart/form-data: { payload: JSON string, image?: File }
+      const form = buildJudgeFormData(args.payload, args.image);
       const response = await axiosClient.post<ApiEnvelope<Judge>>(
         `${JUDGES_BASE}/admin`,
-        { payload },
+        form,
       );
       return unwrap<Judge>(response);
     } catch (error) {
@@ -352,14 +404,20 @@ export const createJudge = createAsyncThunk(
 export const updateJudge = createAsyncThunk(
   'judges/updateJudge',
   async (
-    args: { judgeId: string; payload: Partial<JudgeInput> },
+    args: {
+      judgeId: string;
+      payload: Partial<JudgeInput>;
+      image?: File | null;
+    },
     { rejectWithValue },
   ) => {
     try {
-      // Route expects Body: { payload: Partial<JudgeInput> }
+      // Route expects multipart/form-data: { payload: JSON string, image?: File }
+      // Omitting `image` means "leave the existing portrait alone".
+      const form = buildJudgeFormData(args.payload, args.image);
       const response = await axiosClient.patch<ApiEnvelope<Judge>>(
         `${JUDGES_BASE}/admin/${args.judgeId}`,
-        { payload: args.payload },
+        form,
       );
       return unwrap<Judge>(response);
     } catch (error) {
@@ -607,7 +665,7 @@ const judgesSlice = createSlice({
                   bio: action.payload.bio,
                   education: action.payload.education,
                   specializations: action.payload.specializations,
-                  imageUrl: action.payload.imageUrl,
+                  image: action.payload.image,
                   status: action.payload.status,
                   publishedAt: action.payload.publishedAt,
                   updatedAt: action.payload.updatedAt,

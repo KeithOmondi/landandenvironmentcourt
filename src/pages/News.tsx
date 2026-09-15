@@ -219,7 +219,7 @@ const News: React.FC = () => {
             <span>Media & Announcements</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-bold text-white tracking-tight max-w-4xl mx-auto">
+          <h1 className="text-3xl sm:text-3xl lg:text-3xl font-serif font-bold text-white tracking-tight max-w-4xl mx-auto">
             Latest News
           </h1>
 
