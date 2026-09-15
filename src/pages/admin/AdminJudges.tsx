@@ -22,6 +22,14 @@
 //     it. The "Remove file" control below only discards a locally
 //     staged file — it does not delete the server-side portrait.
 //
+// Delete + editor interaction:
+//   Delete is dispatched from the page, not from the row, so the page
+//   can close the editor if the user deletes the record that's
+//   currently open in it. Without this, deleting the open record
+//   leaves the editor mounted with stale local form state — clicking
+//   Save would then silently dispatch `createJudge` and resurrect the
+//   record. See `handleDelete` in the page component.
+//
 // The editor is the most involved of the six features: education is a
 // repeatable sub-form, specializations is a tag input, and the portrait
 // is a file input with a preview. The base pattern (controlled inputs,
@@ -294,8 +302,10 @@ const SpecializationsEditor = ({
 //   2. Otherwise the existing server-side portrait, if any.
 //   3. Otherwise a neutral placeholder.
 //
-// The object URL for a staged file is revoked when the file changes or
-// the component unmounts. Failing to revoke leaks the blob.
+// The object URL for a staged file is created during render (via
+// `useMemo`) and revoked in an effect cleanup. No state is involved:
+// the URL is a pure function of `stagedFile`, so putting it in state
+// would be the classic "derived state in an effect" anti-pattern.
 //
 // "Remove file" only clears the locally staged file. It does NOT delete
 // the server-side portrait. There is no route for that today.
@@ -313,15 +323,14 @@ const PortraitPicker = ({
 }: PortraitPickerProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Derive the preview URL during render. No state, no effect, no
-  // cascading renders — the URL is a pure function of `stagedFile`.
+  // Derived during render — no state, no effect, no cascading renders.
   const previewUrl = useMemo(
     () => (stagedFile ? URL.createObjectURL(stagedFile) : null),
     [stagedFile],
   );
 
-  // The effect's only job is to revoke the URL when it's no longer
-  // needed. It does NOT call setState.
+  // The effect exists solely to revoke the object URL when it's no
+  // longer needed. It does not call setState.
   useEffect(() => {
     if (!previewUrl) return;
     return () => URL.revokeObjectURL(previewUrl);
@@ -564,25 +573,27 @@ const JudgeEditor = ({ judge, onClose }: EditorProps) => {
 };
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
+//
+// Delete and Submit are delegated to the page via callbacks rather
+// than dispatched here. The page needs to know when a delete happens
+// so it can close the editor if it was editing the deleted record.
+// Keeping that coordination in one place beats threading a `useEffect`
+// through the row.
 
 interface RowProps {
   item: JudgeSummary;
   isSuperAdmin: boolean;
   onEdit: (id: string) => void;
+  onDelete: (item: JudgeSummary) => void;
 }
 
-const JudgeRow = ({ item, isSuperAdmin, onEdit }: RowProps) => {
+const JudgeRow = ({ item, isSuperAdmin, onEdit, onDelete }: RowProps) => {
   const dispatch = useDispatch<AppDispatch>();
   const { isDeleting, isReviewing } = useSelector((s: RootState) => s.judges);
 
   const canEdit = item.status === 'draft' || item.status === 'rejected';
   const canSubmit = canEdit;
   const canReview = isSuperAdmin && item.status === 'pending';
-
-  const handleDelete = () => {
-    if (!confirm(`Delete "${item.name}"?`)) return;
-    dispatch(deleteJudge(item.id));
-  };
 
   const handleSubmit = () => dispatch(submitJudge(item.id));
 
@@ -674,7 +685,7 @@ const JudgeRow = ({ item, isSuperAdmin, onEdit }: RowProps) => {
           {canEdit && (
             <button
               type="button"
-              onClick={handleDelete}
+              onClick={() => onDelete(item)}
               disabled={isDeleting}
               className="rounded border border-red-300 px-2 py-1 text-red-800 hover:bg-red-50 disabled:opacity-50"
             >
@@ -751,6 +762,23 @@ const AdminJudges = () => {
     setEditingId(null);
     dispatch(clearCurrent());
     dispatch(clearSaveState());
+  };
+
+  /**
+   * Delete is handled here rather than in the row so the page can
+   * close the editor when the record being deleted is the one it's
+   * showing. Without this, deleting the open record leaves the editor
+   * mounted with stale form state; clicking Save would dispatch
+   * `createJudge` (because `judge` becomes null) and silently recreate
+   * the record.
+   */
+  const handleDelete = (item: JudgeSummary) => {
+    if (!confirm(`Delete "${item.name}"?`)) return;
+    dispatch(deleteJudge(item.id)).then(() => {
+      if (editingId === item.id) {
+        closeEditor();
+      }
+    });
   };
 
   const rows = useMemo(
@@ -862,6 +890,7 @@ const AdminJudges = () => {
                   item={item}
                   isSuperAdmin={isSuperAdmin}
                   onEdit={handleOpenEdit}
+                  onDelete={handleDelete}
                 />
               ))}
             </tbody>

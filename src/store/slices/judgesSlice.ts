@@ -15,9 +15,11 @@
 //   - The image is NOT part of the `payload` JSON. It travels as a
 //     sibling `image` field in the FormData.
 //   - On update, omitting the image means "leave the existing portrait
-//     alone" (the server treats a missing file as undefined).
-//   - There is no client-side "clear portrait" action yet; the server
-//     supports it via `image: null`, but no route exposes it.
+//     alone" (the server treats a missing file as `undefined`).
+//   - There is no client-side "clear portrait" action yet. The server
+//     supports it via `updateJudge(..., null)`; no HTTP route exposes
+//     it. When the route lands, add a `clearJudgeImage` thunk below
+//     the `updateJudge` thunk — see the comment there.
 //
 // All HTTP lives in THIS file via `axiosClient` from `src/api/api.ts`.
 // This slice only coordinates loading flags, stores results, and
@@ -73,8 +75,11 @@ export interface EducationEntry {
 
 /**
  * A Cloudinary image reference. Mirrors `ImageAsset` on the backend.
- * Both fields are always present together — a row with only one is a
- * server-side data bug that the server logs and downgrades to `null`.
+ *
+ * Both fields are always present together — the server enforces this
+ * with a database CHECK constraint (`chk_judges_image_pairing`) and
+ * throws on any read that would produce a partial row. The frontend
+ * can rely on `{ publicId, url }` being either complete or `null`.
  */
 export interface ImageAsset {
   publicId: string;
@@ -426,6 +431,30 @@ export const updateJudge = createAsyncThunk(
   },
 );
 
+// clearJudgeImage — not implemented yet.
+//
+// The server supports clearing a portrait: `updateJudge(..., null)`
+// sets both image columns to NULL and deletes the Cloudinary asset.
+// What's missing is the HTTP route. When
+// `DELETE /judges/admin/:judgeId/image` lands, uncomment:
+//
+// export const clearJudgeImage = createAsyncThunk(
+//   'judges/clearJudgeImage',
+//   async (judgeId: string, { rejectWithValue }) => {
+//     try {
+//       const response = await axiosClient.delete<ApiEnvelope<Judge>>(
+//         `${JUDGES_BASE}/admin/${judgeId}/image`,
+//       );
+//       return unwrap<Judge>(response);
+//     } catch (error) {
+//       return rejectWithValue(getErrorMessage(error));
+//     }
+//   },
+// );
+//
+// and add an `addCase(clearJudgeImage.fulfilled, ...)` block alongside
+// the `updateJudge` one, updating both `current` and `adminItems`.
+
 export const submitJudge = createAsyncThunk(
   'judges/submitJudge',
   async (judgeId: string, { rejectWithValue }) => {
@@ -622,6 +651,10 @@ const judgesSlice = createSlice({
       })
 
       // ── Create ────────────────────────────────────────────────────────────
+      //
+      // `current` is set because create is triggered from the editor.
+      // The editor is the surface that consumed the previous value, so
+      // replacing it with the new server response is correct.
       .addCase(createJudge.pending, (state) => {
         state.isSaving = true;
         state.saveError = null;
@@ -642,6 +675,11 @@ const judgesSlice = createSlice({
       })
 
       // ── Update ────────────────────────────────────────────────────────────
+      //
+      // Same reasoning as create: the editor initiated this, so `current`
+      // is the right place to reflect the response. `adminItems` is
+      // patched in place so the list view stays consistent without a
+      // refetch.
       .addCase(updateJudge.pending, (state) => {
         state.isSaving = true;
         state.saveError = null;
@@ -681,6 +719,18 @@ const judgesSlice = createSlice({
       })
 
       // ── Submit ────────────────────────────────────────────────────────────
+      //
+      // Submit is a row-level action, NOT an editor action. The user
+      // clicks Submit on a table row; the editor may be open on a
+      // different judge, or not open at all. Setting `current` here
+      // would silently replace whatever the editor is showing with a
+      // different record — a real bug that surfaces as "I opened judge
+      // A, clicked Submit on judge B, and now the form shows B's data".
+      //
+      // Only `adminItems` is updated. `isSaving` and `saveSuccess` are
+      // reused because the slice has no separate flags for row actions
+      // and adding them would touch every consumer; the transient
+      // success banner is acceptable feedback for a submit.
       .addCase(submitJudge.pending, (state) => {
         state.isSaving = true;
         state.saveError = null;
@@ -691,7 +741,6 @@ const judgesSlice = createSlice({
         (state, action: PayloadAction<Judge>) => {
           state.isSaving = false;
           state.saveSuccess = true;
-          state.current = action.payload;
           state.adminItems = state.adminItems.map((item) =>
             item.id === action.payload.id
               ? {
@@ -732,6 +781,9 @@ const judgesSlice = createSlice({
       })
 
       // ── Approve ───────────────────────────────────────────────────────────
+      //
+      // Review actions are row-level, not editor-level. Same reasoning
+      // as submit: no `current` mutation.
       .addCase(approveJudge.pending, (state) => {
         state.isReviewing = true;
         state.reviewError = null;
