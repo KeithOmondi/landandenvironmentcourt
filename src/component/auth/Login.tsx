@@ -1,8 +1,39 @@
 // src/pages/Login.tsx
+//
+// Two-step, password-less login.
+//
+//   Step 1: submit PJ number → requestOtp → server emails a code.
+//   Step 2: submit code       → verifyOtp  → server issues tokens
+//                                            and sets the refresh cookie.
+//
+// After verifyOtp resolves, the auth slice stores `user` and
+// `accessToken`. This component watches `user` and navigates to the
+// correct dashboard for the role. If the user was bounced here by
+// `RequireAuth`, `location.state.from` holds the originally-requested
+// path and takes precedence over the role default.
+
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { clearError, requestOtp, verifyOtp } from '../../store/slices/authSlice';
+import type { UserRole } from '../../store/slices/authSlice';
+
+// ─── ROLE → DASHBOARD MAP ──────────────────────────────────────────────────
+//
+// Single source of truth for "where does each role land after login".
+// Add a role here, add its value — no changes needed in the component
+// body. The `admin` fallback keeps the type exhaustive and gives a
+// safe default for any role not yet mapped.
+
+const ROLE_HOME: Record<UserRole, string> = {
+  super_admin: '/super-admin',
+  admin:       '/admin',
+};
+
+const homePathForRole = (role: UserRole): string =>
+  ROLE_HOME[role] ?? '/admin';
+
+// ─── COMPONENT ─────────────────────────────────────────────────────────────
 
 const Login = () => {
   const dispatch = useAppDispatch();
@@ -12,20 +43,20 @@ const Login = () => {
   const { isLoading, error, otpRequested, user } = useAppSelector((s) => s.auth);
 
   const [pjNumber, setPjNumber] = useState('');
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp]           = useState('');
 
-  // Where to send the user after successful login.
-  // RequireAuth sets `state.from` when it bounces them to /login.
-  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname;
+  // Where to send the user after successful login. `RequireAuth` sets
+  // `state.from` when it bounces an unauthenticated user to /login, so
+  // honouring it takes them back to the page they were trying to reach.
+  const from = (location.state as { from?: { pathname: string } } | null)
+    ?.from?.pathname;
 
   // Redirect once the user is set (after verifyOtp succeeds).
   useEffect(() => {
     if (!user) return;
 
-    const destination =
-      user.role === 'super_admin' ? '/super-admin' : '/admin';
-
-    navigate(from ?? destination, { replace: true });
+    const destination = from ?? homePathForRole(user.role);
+    navigate(destination, { replace: true });
   }, [user, from, navigate]);
 
   // Clear any stale error when the user switches between the two steps.

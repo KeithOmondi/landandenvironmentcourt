@@ -10,7 +10,7 @@ const navItems = [
   { name: 'Events', path: '/super-admin/events', icon: Newspaper, end: true },
   { name: 'Publications', path: '/super-admin/publications', icon: Newspaper, end: true },
   { name: 'Documents', path: '/super-admin/documents', icon: Newspaper, end: true },
-  { name: 'Judges', path: '/admin/judges', icon: GrDocumentStore, end: false },
+  { name: 'Judges', path: '/super-admin/judges', icon: GrDocumentStore, end: false },
   { name: 'Tributes', path: '/super-admin/tributes', icon: ShieldCheck, end: false },
   { name: 'Users', path: '/super-admin/users', icon: Users, end: false },
   { name: 'Admins', path: '/super-admin/admins', icon: ShieldCheck, end: false },
