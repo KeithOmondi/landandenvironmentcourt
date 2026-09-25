@@ -39,6 +39,10 @@ import SuperAdminTributes from '../pages/superadmin/SuperAdminTributes';
 import AdminTributes from '../pages/admin/AdminTributes';
 import SuperAdminJudges from '../pages/superadmin/SuperAdminJudges';
 import AdminJudges from '../pages/admin/AdminJudges';
+import SuperAdminPrincipalJudge from '../pages/superadmin/SuperAdminPrincipalJudge';
+import AdminPrincipalJudge from '../pages/admin/AdminPrincipalJudge';
+import SuperAdminContact from '../pages/superadmin/SuperAdminContact';
+import AdminContacts from '../pages/admin/AdminContacts';
 
 const AppRoutes = () => {
   return (
@@ -78,6 +82,8 @@ const AppRoutes = () => {
             <Route path="documents" element={<SuperAdminDocuments />} />
             <Route path="tributes" element={<SuperAdminTributes />} />
             <Route path="judges" element={<SuperAdminJudges />} />
+            <Route path="principal-judge" element={<SuperAdminPrincipalJudge />} />
+            <Route path="contacts" element={<SuperAdminContact />} />
 
           </Route>
         </Route>
@@ -99,6 +105,8 @@ const AppRoutes = () => {
             <Route path="documents" element={<AdminDocuments />} />
             <Route path="tributes" element={<AdminTributes />} />
             <Route path="judges" element={<AdminJudges />} />
+            <Route path="pj" element={<AdminPrincipalJudge />} />
+            <Route path="contacts" element={<AdminContacts />} />
           </Route>
         </Route>
       </Route>

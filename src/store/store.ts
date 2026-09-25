@@ -7,6 +7,8 @@ import eventsReducer from './slices/eventsSlice';
 import publicationsReducer from './slices/publicationsSlice';
 import documentsReducer from './slices/documentsSlice';
 import judgesReducer from './slices/judgesSlice';
+import principalJudgesReducer from "./slices/principalJudgesSlice"
+import contactReducer from './slices/contactSlice';
 
 export const store = configureStore({
   reducer: {
@@ -17,6 +19,8 @@ export const store = configureStore({
     publications: publicationsReducer, 
     documents: documentsReducer,
     judges: judgesReducer,
+    principalJudges: principalJudgesReducer,
+    contact: contactReducer,
   },
 });
 

@@ -167,16 +167,22 @@ const Hero: React.FC = () => {
     <div className="relative bg-[#061e14] text-white overflow-hidden">
       <div className="relative flex items-center pt-12 pb-12 sm:pt-16 sm:pb-16">
         {/* Background slider */}
-        <div className="absolute inset-0 z-0">
-          {slides.map((slide) => (
-            <SlideLayer
-              key={slide.id}
-              slide={slide}
-              isActive={slide.displayOrder === slides[currentSlide]?.displayOrder}
-            />
-          ))}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#061e14] via-[#061e14]/95 to-[#061e14]/70" />
-        </div>
+{/* Background slider */}
+<div className="absolute inset-0 z-0">
+  {slides.map((slide) => (
+    <SlideLayer
+      key={slide.id}
+      slide={slide}
+      isActive={slide.displayOrder === slides[currentSlide]?.displayOrder}
+    />
+  ))}
+  {/* Gradient overlay — solid on the left for text legibility,
+      fading to mostly transparent on the right so the image shows. */}
+  <div className="absolute inset-0 bg-gradient-to-r from-[#061e14] via-[#061e14]/70 to-[#061e14]/10" />
+  {/* Subtle vertical vignette to keep top/bottom text crisp without
+      dimming the middle of the image. */}
+  <div className="absolute inset-0 bg-gradient-to-b from-[#061e14]/60 via-transparent to-[#061e14]/60" />
+</div>
 
         {/* Watermark */}
         <FaBalanceScale className="absolute right-[-5%] bottom-[-10%] text-[480px] text-white/[0.02] pointer-events-none select-none z-10" />

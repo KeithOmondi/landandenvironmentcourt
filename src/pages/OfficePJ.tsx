@@ -1,65 +1,129 @@
-import React, { useState } from 'react';
-import { 
-  FaGavel, 
-  FaAward, 
-  FaCheckCircle, 
-  FaTasks, 
-  FaTrophy, 
+// src/features/principalJudges/OfficePJ.tsx
+//
+// Public page: Office of the Principal Judge.
+//
+//   - Loads the combined view (current + previous) from the API via
+//     `fetchPublicPrincipalJudgeView`. No hardcoded data.
+//   - Renders the current Principal Judge as the hero card and the
+//     predecessors as clickable cards in a "Judicial Heritage" grid.
+//   - Clicking any card opens the profile modal.
+//   - The `rolesList` and `achievementsList` content below the hero
+//     is editorial copy about the office, not about a specific
+//     judge — it stays static until you decide to move it into the
+//     database as its own resource.
+//
+// Portrait handling:
+//   - Every record's portrait comes from Cloudinary, referenced by
+//     `record.image.url`. When a record has no portrait, the card and
+//     modal show initials on the brand gradient — same fallback used
+//     on the judges bench listing.
+//   - The hero portrait uses `object-top` so the head sits in frame
+//     for head-and-shoulders shots.
+
+import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  FaGavel,
+  FaAward,
+  FaCheckCircle,
+  FaTasks,
+  FaTrophy,
   FaQuoteLeft,
   FaCalendarAlt,
   FaTimes,
   FaIdCard,
   FaUserShield,
-  FaMapMarkerAlt
+  FaMapMarkerAlt,
+  FaHistory,
+  FaSpinner,
 } from 'react-icons/fa';
+import {
+  fetchPublicPrincipalJudgeView,
+  type PublicPrincipalJudge,
+} from '../store/slices/principalJudgesSlice';
+import type { AppDispatch, RootState } from '../store/store';
 
-interface Judge {
-  id: string;
-  name: string;
-  tenure: string;
-  station?: string;
-  shortBio: string;
-  fullBio: string;
-  keyContributions: string[];
-  image: string;
-}
+// ─── Editorial content (static) ──────────────────────────────────────────────
+//
+// The roles and achievements tabs describe the office, not a specific
+// judge. They live here until/unless you decide to move them into the
+// database as their own editorial resource. If they ever need to be
+// editable, they'd become their own feature (a `principal_judge_office`
+// singleton table or a small key/value content store).
 
 const rolesList = [
   {
     category: 'Managing the Court',
     items: [
       'Responsible for the overall administration and management of the Environment and Land Court to ensure order and timely justice.',
-      'Recommends policies and procedures that enhance court efficiency and accessibility nationwide.'
-    ]
+      'Recommends policies and procedures that enhance court efficiency and accessibility nationwide.',
+    ],
   },
   {
     category: 'Leadership & Governance',
     items: [
       'Elected by ELC Judges to serve a non-renewable five-year leadership term.',
-      'Fosters harmonious relationships between Judges, Judicial Officers, and registry staff.'
-    ]
+      'Fosters harmonious relationships between Judges, Judicial Officers, and registry staff.',
+    ],
   },
   {
     category: 'Policy & Innovation',
     items: [
       'Drives technological integration and e-filing implementation across all ELC stations.',
-      'Promotes Alternative Dispute Resolution (ADR) for fair, expeditious land dispute resolution.'
-    ]
-  }
+      'Promotes Alternative Dispute Resolution (ADR) for fair, expeditious land dispute resolution.',
+    ],
+  },
 ];
 
 const achievementsList = [
   'Inauguration and leadership execution since election in 2022.',
   'Expanded specialized ELC stations to over 38 counties to bring land justice closer to citizens.',
   'Accelerated case clearance rates for long-standing land and environmental disputes under STAJ.',
-  'Standardized ELC bench procedures and guidelines across all sub-registries.'
+  'Standardized ELC bench procedures and guidelines across all sub-registries.',
 ];
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const initials = (name: string): string => {
+  const parts = name
+    .replace(/[,.]/g, ' ')
+    .split(/\s+/)
+    .filter((p) => /^[A-Z]/.test(p));
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0][0];
+  return parts[parts.length - 1][0] + (parts[parts.length - 2]?.[0] ?? '');
+};
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 const OfficePJ: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
+
+  const { publicView, isLoadingPublicView, publicViewError } = useSelector(
+    (s: RootState) => s.principalJudges,
+  );
+
   const [activeTab, setActiveTab] = useState<'roles' | 'achievements'>('roles');
-  const [selectedJudge, setSelectedJudge] = useState<Judge | null>(null);
+  const [selectedJudge, setSelectedJudge] =
+    useState<PublicPrincipalJudge | null>(null);
+
+  // Fetch the combined view once on mount.
+  useEffect(() => {
+    dispatch(fetchPublicPrincipalJudgeView());
+  }, [dispatch]);
+
+  // Close modal on Escape.
+  useEffect(() => {
+    if (!selectedJudge) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedJudge(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedJudge]);
+
+  const current = publicView?.current ?? null;
+  const previous = publicView?.previous ?? [];
 
   return (
     <div className="relative bg-slate-50 py-16 sm:py-20 text-slate-800 overflow-hidden">
@@ -68,86 +132,136 @@ const OfficePJ: React.FC = () => {
       <div className="absolute bottom-10 right-0 w-96 h-96 bg-[#061e14]/5 rounded-full blur-[140px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 space-y-16">
-        
         {/* ================= HERO HEADER ================= */}
         <div className="text-center max-w-3xl mx-auto space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-900/10 border border-emerald-900/20 text-xs text-emerald-900 font-medium">
             <FaGavel className="text-[#C69A33]" />
-            <span className="font-semibold uppercase tracking-wider">Judicial Leadership</span>
+            <span className="font-semibold uppercase tracking-wider">
+              Judicial Leadership
+            </span>
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-3xl font-serif font-bold text-slate-900 tracking-tight">
             Office of the <span className="text-[#061e14]">Principal Judge</span>
           </h1>
           <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
-            Leading the administration, strategic direction, and judicial management of the Environment and Land Court of Kenya.
+            Leading the administration, strategic direction, and judicial
+            management of the Environment and Land Court of Kenya.
           </p>
         </div>
 
-        {/* ================= PRINCIPAL JUDGE PROFILE CARD ================= */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
-            
-            {/* Left Column: Full-Height Box Image */}
-            <div className="lg:col-span-5 relative group min-h-[400px] lg:min-h-[520px] overflow-hidden bg-[#061e14]">
-              <img 
-                src="https://judiciary.go.ke/wp-content/uploads/2024/05/Hon.-Mr.-Justice-Oscar-Amugo-Angote.png" 
-                alt="Hon. Justice Oscar Angote, MBS" 
-                className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#061e14] via-[#061e14]/30 to-transparent" />
-              
-              <div className="absolute bottom-0 left-0 right-0 p-8 space-y-1.5 text-center sm:text-left z-10">
-                <span className="inline-block px-3.5 py-1 rounded-full bg-[#C69A33] text-[#061e14] text-xs font-mono font-bold uppercase tracking-wider shadow">
-                  Current Leadership
-                </span>
-                <h3 className="text-2xl font-serif font-bold text-white drop-shadow-md">
-                  Hon. Justice Oscar Angote, MBS
-                </h3>
-                <p className="text-xs text-[#D4AF37] font-mono uppercase tracking-wider font-semibold">
-                  Principal Judge, ELC Kenya
-                </p>
-              </div>
-            </div>
-
-            {/* Right Column: Bio & Context */}
-            <div className="lg:col-span-7 p-8 sm:p-12 space-y-6 flex flex-col justify-between">
-              <div className="space-y-6">
-                <div className="inline-flex items-center gap-2 text-xs font-mono font-bold text-[#C69A33] uppercase tracking-wider">
-                  <FaAward className="w-4 h-4" />
-                  <span>Constitutional Mandate</span>
-                </div>
-
-                <blockquote className="relative pl-6 border-l-4 border-[#C69A33] py-2 bg-amber-50/60 rounded-r-2xl">
-                  <FaQuoteLeft className="absolute top-1 left-2 text-xl text-[#C69A33]/30" />
-                  <p className="text-lg sm:text-xl font-serif italic text-slate-800 font-semibold leading-relaxed">
-                    “Leading the management and administration of the court’s business, recommending policies that improve legal efficacy and access to land justice.”
-                  </p>
-                </blockquote>
-
-                <div className="space-y-4 text-slate-600 text-sm sm:text-base leading-relaxed">
-                  <p>
-                    The Environment and Land Court is led by a Principal Judge who is elected by ELC Judges and serves a non-renewable five-year term. The Principal Judge oversees the structural governance, court station allocation, and policy enforcement across the Republic.
-                  </p>
-                  <p>
-                    The current Principal Judge, <strong className="text-slate-900">Hon. Justice Oscar Angote, MBS</strong>, was elected and inaugurated as the Principal Judge of the Environment and Land Court in <strong className="text-slate-900">2022</strong>.
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 flex flex-wrap gap-4 text-xs font-mono">
-                <div className="px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center gap-2">
-                  <FaCalendarAlt className="text-[#C69A33]" />
-                  <span>Term: 2022 – Present</span>
-                </div>
-                <div className="px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center gap-2">
-                  <FaGavel className="text-[#C69A33]" />
-                  <span>5-Year Non-Renewable Term</span>
-                </div>
-              </div>
-            </div>
-
+        {/* ================= LOADING / ERROR ================= */}
+        {isLoadingPublicView && (
+          <div className="flex items-center justify-center gap-3 py-12 text-slate-500">
+            <FaSpinner className="animate-spin" />
+            <span className="text-sm">Loading Principal Judge…</span>
           </div>
-        </div>
+        )}
+
+        {!isLoadingPublicView && publicViewError && (
+          <div className="text-center py-12 rounded-2xl border border-dashed border-slate-300 bg-white/60">
+            <p className="text-sm text-slate-600">{publicViewError}</p>
+            <button
+              type="button"
+              onClick={() => dispatch(fetchPublicPrincipalJudgeView())}
+              className="mt-3 text-xs text-[#C69A33] font-bold font-mono underline"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        {/* ================= CURRENT PRINCIPAL JUDGE ================= */}
+        {!isLoadingPublicView && !publicViewError && current && (
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
+              {/* Left: portrait (full-height) */}
+              <div className="lg:col-span-5 relative group min-h-[400px] lg:min-h-[520px] overflow-hidden bg-[#061e14]">
+                {current.image?.url ? (
+                  <img
+                    src={current.image.url}
+                    alt={current.name}
+                    className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#061e14] to-slate-900">
+                    <span className="text-7xl font-serif font-bold text-[#D4AF37]/80 tracking-wider">
+                      {initials(current.name)}
+                    </span>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#061e14] via-[#061e14]/30 to-transparent" />
+
+                <div className="absolute bottom-0 left-0 right-0 p-8 space-y-1.5 text-center sm:text-left z-10">
+                  <span className="inline-block px-3.5 py-1 rounded-full bg-[#C69A33] text-[#061e14] text-xs font-mono font-bold uppercase tracking-wider shadow">
+                    Current Leadership
+                  </span>
+                  <h3 className="text-2xl font-serif font-bold text-white drop-shadow-md">
+                    {current.name}
+                  </h3>
+                  <p className="text-xs text-[#D4AF37] font-mono uppercase tracking-wider font-semibold">
+                    Principal Judge, ELC Kenya
+                  </p>
+                </div>
+              </div>
+
+              {/* Right: bio */}
+              <div className="lg:col-span-7 p-8 sm:p-12 space-y-6 flex flex-col justify-between">
+                <div className="space-y-6">
+                  <div className="inline-flex items-center gap-2 text-xs font-mono font-bold text-[#C69A33] uppercase tracking-wider">
+                    <FaAward className="w-4 h-4" />
+                    <span>Constitutional Mandate</span>
+                  </div>
+
+                  <blockquote className="relative pl-6 border-l-4 border-[#C69A33] py-2 bg-amber-50/60 rounded-r-2xl">
+                    <FaQuoteLeft className="absolute top-1 left-2 text-xl text-[#C69A33]/30" />
+                    <p className="text-lg sm:text-xl font-serif italic text-slate-800 font-semibold leading-relaxed">
+                      "Leading the management and administration of the
+                      court's business, recommending policies that improve
+                      legal efficacy and access to land justice."
+                    </p>
+                  </blockquote>
+
+                  <div className="space-y-4 text-slate-600 text-sm sm:text-base leading-relaxed">
+                    <p>
+                      The Environment and Land Court is led by a Principal
+                      Judge who is elected by ELC Judges and serves a
+                      non-renewable five-year term. The Principal Judge
+                      oversees the structural governance, court station
+                      allocation, and policy enforcement across the Republic.
+                    </p>
+                    <p>{current.shortBio}</p>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex flex-wrap gap-4 text-xs font-mono">
+                  <div className="px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center gap-2">
+                    <FaCalendarAlt className="text-[#C69A33]" />
+                    <span>Term: {current.tenure}</span>
+                  </div>
+                  {current.station && (
+                    <div className="px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center gap-2">
+                      <FaMapMarkerAlt className="text-[#C69A33]" />
+                      <span>{current.station}</span>
+                    </div>
+                  )}
+                  <div className="px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center gap-2">
+                    <FaGavel className="text-[#C69A33]" />
+                    <span>5-Year Non-Renewable Term</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= EMPTY STATE ================= */}
+        {!isLoadingPublicView && !publicViewError && !current && (
+          <div className="text-center py-12 rounded-2xl border border-dashed border-slate-300 bg-white/60">
+            <p className="text-sm text-slate-500">
+              No current Principal Judge record is published.
+            </p>
+          </div>
+        )}
 
         {/* ================= TABBED DETAILS SECTION ================= */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-lg p-8 sm:p-12 space-y-8">
@@ -160,7 +274,11 @@ const OfficePJ: React.FC = () => {
                   : 'border-transparent text-slate-400 hover:text-slate-600'
               }`}
             >
-              <FaTasks className={activeTab === 'roles' ? 'text-[#C69A33]' : 'text-slate-400'} />
+              <FaTasks
+                className={
+                  activeTab === 'roles' ? 'text-[#C69A33]' : 'text-slate-400'
+                }
+              />
               <span>Roles of the Principal Judge</span>
             </button>
 
@@ -172,25 +290,39 @@ const OfficePJ: React.FC = () => {
                   : 'border-transparent text-slate-400 hover:text-slate-600'
               }`}
             >
-              <FaTrophy className={activeTab === 'achievements' ? 'text-[#C69A33]' : 'text-slate-400'} />
-              <span>Achievements & Reforms</span>
+              <FaTrophy
+                className={
+                  activeTab === 'achievements'
+                    ? 'text-[#C69A33]'
+                    : 'text-slate-400'
+                }
+              />
+              <span>Achievements &amp; Reforms</span>
             </button>
           </div>
 
           {activeTab === 'roles' && (
             <div className="space-y-6">
               <p className="text-sm text-slate-600">
-                The Principal Judge carries executive administrative duties for the ELC in accordance with judicial governance frameworks:
+                The Principal Judge carries executive administrative duties
+                for the ELC in accordance with judicial governance
+                frameworks:
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {rolesList.map((group, idx) => (
-                  <div key={idx} className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                  <div
+                    key={idx}
+                    className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4"
+                  >
                     <h4 className="text-base font-bold font-serif text-slate-900 border-b border-slate-200 pb-2">
                       {group.category}
                     </h4>
                     <ul className="space-y-3">
                       {group.items.map((item, itemIdx) => (
-                        <li key={itemIdx} className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                        <li
+                          key={itemIdx}
+                          className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-600 leading-relaxed"
+                        >
                           <FaCheckCircle className="w-4 h-4 text-[#C69A33] shrink-0 mt-0.5" />
                           <span>{item}</span>
                         </li>
@@ -205,11 +337,15 @@ const OfficePJ: React.FC = () => {
           {activeTab === 'achievements' && (
             <div className="space-y-6">
               <p className="text-sm text-slate-600">
-                Key strategic milestones achieved under the current tenure of the Office of the Principal Judge:
+                Key strategic milestones achieved under the current tenure of
+                the Office of the Principal Judge:
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {achievementsList.map((achievement, idx) => (
-                  <div key={idx} className="flex items-start gap-3 p-5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-sm sm:text-base leading-relaxed">
+                  <div
+                    key={idx}
+                    className="flex items-start gap-3 p-5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-sm sm:text-base leading-relaxed"
+                  >
                     <div className="p-1.5 rounded-lg bg-[#061e14] text-[#D4AF37] shrink-0 mt-0.5">
                       <FaCheckCircle className="w-4 h-4" />
                     </div>
@@ -221,27 +357,99 @@ const OfficePJ: React.FC = () => {
           )}
         </div>
 
+        {/* ================= PREVIOUS PRINCIPAL JUDGES ================= */}
+        {!isLoadingPublicView && !publicViewError && previous.length > 0 && (
+          <div className="space-y-10 pt-10 border-t border-slate-200">
+            <div className="text-center space-y-2">
+              <div className="inline-flex items-center gap-2 text-xs font-mono font-bold text-[#C69A33] uppercase tracking-wider">
+                <FaHistory />
+                <span>Judicial Heritage</span>
+              </div>
+              <h2 className="text-3xl font-serif font-bold text-slate-900">
+                Previous Principal Judges
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto">
+                Click on any judge profile card below to view full judicial
+                credentials, tenure details, and key contributions.
+              </p>
+            </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+              {previous.map((judge) => (
+                <div
+                  key={judge.id}
+                  onClick={() => setSelectedJudge(judge)}
+                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col group cursor-pointer"
+                >
+                  {/* Portrait */}
+                  <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-slate-900 shrink-0">
+                    {judge.image?.url ? (
+                      <img
+                        src={judge.image.url}
+                        alt={judge.name}
+                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#061e14] to-slate-900">
+                        <span className="text-4xl font-serif font-bold text-[#D4AF37]/80 tracking-wider">
+                          {initials(judge.name)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
 
+                    <div className="absolute top-3 right-3 bg-[#061e14]/90 backdrop-blur-md border border-[#C69A33]/50 px-2.5 py-1 rounded-full shadow-md">
+                      <span className="text-[10px] sm:text-xs font-mono font-bold text-[#D4AF37]">
+                        {judge.tenure}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-5 flex flex-col justify-between flex-grow space-y-3 bg-white">
+                    <div className="space-y-1.5">
+                      <h3 className="text-base font-serif font-bold text-slate-900 group-hover:text-[#061e14] transition-colors line-clamp-2">
+                        {judge.name}
+                      </h3>
+                      <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
+                        {judge.shortBio}
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-mono text-[#C69A33] font-bold">
+                      <span className="flex items-center gap-1.5">
+                        <FaGavel className="w-3 h-3" />
+                        <span>Former Principal Judge</span>
+                      </span>
+                      <span className="underline underline-offset-2 text-[#061e14] group-hover:text-[#C69A33] transition-colors">
+                        View ID Card &rarr;
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ================= JUDGE PROFILE / ID MODAL ================= */}
       {selectedJudge && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn"
           onClick={() => setSelectedJudge(null)}
         >
-          <div 
+          <div
             className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden relative transform transition-all duration-300 scale-100 max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Top Header Bar */}
+            {/* Modal header */}
             <div className="bg-[#061e14] text-white px-6 py-4 flex items-center justify-between border-b border-[#C69A33]/30 shrink-0">
               <div className="flex items-center gap-2.5 text-xs font-mono tracking-wider uppercase text-[#D4AF37]">
                 <FaIdCard className="text-lg" />
                 <span>Judicial Profile Record</span>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedJudge(null)}
                 className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
                 aria-label="Close modal"
@@ -250,21 +458,26 @@ const OfficePJ: React.FC = () => {
               </button>
             </div>
 
-            {/* Modal Body Content */}
+            {/* Modal body */}
             <div className="p-6 sm:p-8 overflow-y-auto space-y-6">
-              
-              {/* ID Badge Header Card */}
+              {/* ID badge header */}
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 relative">
-                {/* Image */}
                 <div className="relative w-28 h-36 sm:w-32 sm:h-40 rounded-xl overflow-hidden border-2 border-[#C69A33] shadow-md shrink-0 bg-slate-900">
-                  <img 
-                    src={selectedJudge.image} 
-                    alt={selectedJudge.name} 
-                    className="w-full h-full object-cover object-top"
-                  />
+                  {selectedJudge.image?.url ? (
+                    <img
+                      src={selectedJudge.image.url}
+                      alt={selectedJudge.name}
+                      className="w-full h-full object-cover object-top"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-4xl font-serif font-bold text-[#D4AF37]/80">
+                        {initials(selectedJudge.name)}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Info Text */}
                 <div className="space-y-2 text-center sm:text-left flex-grow">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#061e14] text-[#D4AF37] text-[10px] font-mono font-bold uppercase tracking-wider">
                     <FaUserShield className="w-3 h-3" />
@@ -288,7 +501,7 @@ const OfficePJ: React.FC = () => {
                 </div>
               </div>
 
-              {/* Detailed Bio */}
+              {/* Full bio */}
               <div className="space-y-2">
                 <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#C69A33] flex items-center gap-2">
                   <FaGavel className="w-3.5 h-3.5" />
@@ -299,7 +512,7 @@ const OfficePJ: React.FC = () => {
                 </p>
               </div>
 
-              {/* Key Contributions */}
+              {/* Key contributions */}
               <div className="space-y-3">
                 <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#061e14] flex items-center gap-2">
                   <FaTrophy className="w-3.5 h-3.5 text-[#C69A33]" />
@@ -307,7 +520,7 @@ const OfficePJ: React.FC = () => {
                 </h4>
                 <div className="grid grid-cols-1 gap-2.5">
                   {selectedJudge.keyContributions.map((item, index) => (
-                    <div 
+                    <div
                       key={index}
                       className="flex items-start gap-2.5 p-3 rounded-xl bg-emerald-950/5 border border-emerald-900/10 text-xs text-slate-700"
                     >
@@ -317,10 +530,9 @@ const OfficePJ: React.FC = () => {
                   ))}
                 </div>
               </div>
-
             </div>
 
-            {/* Modal Footer */}
+            {/* Modal footer */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0">
               <button
                 onClick={() => setSelectedJudge(null)}
@@ -329,11 +541,9 @@ const OfficePJ: React.FC = () => {
                 Close Record
               </button>
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   );
 };

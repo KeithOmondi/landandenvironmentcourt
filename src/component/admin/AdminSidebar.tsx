@@ -11,8 +11,9 @@ const navItems = [
   { name: 'Events', path: '/admin/events', icon: Newspaper, end: false },
   { name: 'Publications', path: '/admin/publications', icon: Newspaper, end: false },
   { name: 'Documents', path: '/admin/documents', icon: GrDocumentStore, end: false },
+  { name: 'Principal Judge', path: '/admin/pj', icon: GiJusticeStar, end: false },
   { name: 'Judges', path: '/admin/judges', icon: GiJusticeStar, end: false },
-  { name: 'Tributes', path: '/admin/tributes', icon: GrDocumentStore, end: false },
+  { name: 'Contacts', path: '/admin/contacts', icon: GrDocumentStore, end: false },
   { name: 'Settings', path: '/admin/settings', icon: Settings, end: false },
 ];
 
