@@ -60,6 +60,7 @@ import {
 import { isSuperAdmin as userIsSuperAdmin } from '../../store/slices/authSlice';
 import type { AppDispatch, RootState } from '../../store/store';
 import JudgeExtraFields from '../../component/JudgeExtraFields';
+import Modal from '../../component/Modal';
 import JudgeOrderPanel from '../../component/JudgeOrderPanel';
 
 // ─── Small helpers ───────────────────────────────────────────────────────────
@@ -458,8 +459,9 @@ const JudgeEditor = ({ judge, onClose }: EditorProps) => {
           createJudge({ payload: form, image: imageFile ?? undefined }),
         ).unwrap();
       }
+      onClose();
     } catch {
-      // The slice has already recorded saveError.
+      // The slice has already recorded saveError; keep the modal open.
     }
   };
 
@@ -849,12 +851,15 @@ const AdminJudges = () => {
       </div>
 
       {showEditor && (
-        <div className="mb-6">
+        <Modal onClose={closeEditor}>
           {editingId && isLoadingCurrent && (
-            <p className="text-sm text-gray-500">Loading record…</p>
+            <p className="py-8 text-center text-sm text-gray-500">Loading record…</p>
           )}
           {editingId && currentError && (
-            <p className="text-sm text-red-600">{currentError}</p>
+            <div className="space-y-3 py-6 text-center">
+              <p className="text-sm text-red-600">{currentError}</p>
+              <button type="button" onClick={closeEditor} className="rounded border border-gray-300 px-3 py-1.5 text-sm">Close</button>
+            </div>
           )}
           {(!editingId || (!isLoadingCurrent && !currentError)) && (
             <JudgeEditor
@@ -863,7 +868,7 @@ const AdminJudges = () => {
               onClose={closeEditor}
             />
           )}
-        </div>
+        </Modal>
       )}
 
       {reviewError && (

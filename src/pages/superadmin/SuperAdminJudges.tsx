@@ -62,6 +62,7 @@ import {
 import { isSuperAdmin as userIsSuperAdmin } from '../../store/slices/authSlice';
 import type { AppDispatch, RootState } from '../../store/store';
 import JudgeExtraFields from '../../component/JudgeExtraFields';
+import Modal from '../../component/Modal';
 import {
   EducationEditor,
   SpecializationsEditor,
@@ -578,20 +579,27 @@ const SuperAdminJudges = () => {
         </p>
       </div>
 
-      {/* Editor (rendered inline above the list when open). */}
-      {editingId && isLoadingCurrent && (
-        <p className="mb-4 text-sm text-gray-500">Loading record…</p>
-      )}
-      {editingId && currentError && (
-        <p className="mb-4 text-sm text-red-600">{currentError}</p>
-      )}
-      {editingId && !isLoadingCurrent && !currentError && current && (
-        <JudgeEditor
-          key={current.id}
-          judge={current}
-          onClose={handleCloseEditor}
-          onSaved={handleSaved}
-        />
+      {/* Editor opens in a modal. */}
+      {editingId && (
+        <Modal onClose={handleCloseEditor}>
+          {isLoadingCurrent && (
+            <p className="py-8 text-center text-sm text-gray-500">Loading record…</p>
+          )}
+          {currentError && (
+            <div className="space-y-3 py-6 text-center">
+              <p className="text-sm text-red-600">{currentError}</p>
+              <button type="button" onClick={handleCloseEditor} className="rounded border border-gray-300 px-3 py-1.5 text-sm">Close</button>
+            </div>
+          )}
+          {!isLoadingCurrent && !currentError && current && (
+            <JudgeEditor
+              key={current.id}
+              judge={current}
+              onClose={handleCloseEditor}
+              onSaved={handleSaved}
+            />
+          )}
+        </Modal>
       )}
 
       <JudgeOrderPanel />
