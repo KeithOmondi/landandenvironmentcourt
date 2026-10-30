@@ -35,20 +35,22 @@ import type { AppDispatch, RootState } from './store/store';
 import { refreshAccessToken, setInitializationComplete } from './store/slices/authSlice';
 import AppRoutes from './routes/AppRoutes';
 
-const PUBLIC_ROUTES = ['/login', '/unauthorized'];
+// Only these areas need a session; the public site renders immediately.
+const PROTECTED_PREFIXES = ['/admin', '/super-admin'];
 
 const AppInner: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const location = useLocation();
   const isInitializing = useSelector((state: RootState) => state.auth.isInitializing);
+  const hasUser = useSelector((state: RootState) => state.auth.user !== null);
 
   // Guards the refresh dispatch so it fires exactly once per mount,
   // regardless of how many times the effect re-runs due to location
   // or isPublic changes.
   const hasDispatched = useRef(false);
 
-  const isPublic = PUBLIC_ROUTES.some((route) =>
-    location.pathname.startsWith(route),
+  const isPublic = !PROTECTED_PREFIXES.some((prefix) =>
+    location.pathname.startsWith(prefix),
   );
 
   useEffect(() => {
@@ -61,11 +63,18 @@ const AppInner: React.FC = () => {
       return;
     }
 
+    // Just logged in (verifyOtp set the user): no session to restore.
+    if (hasUser) {
+      hasDispatched.current = true;
+      dispatch(setInitializationComplete());
+      return;
+    }
+
     if (!hasDispatched.current) {
       hasDispatched.current = true;
       dispatch(refreshAccessToken());
     }
-  }, [dispatch, isPublic, location.pathname]);
+  }, [dispatch, isPublic, hasUser, location.pathname]);
 
   if (isPublic) {
     return <AppRoutes />;

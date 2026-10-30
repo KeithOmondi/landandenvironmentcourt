@@ -38,7 +38,7 @@ const featuredHighlights = [
     subtitle: 'Digital Case Management & Filings',
     icon: FaLaptopCode,
     image: '',
-    path: '/registry/principal',
+    path: '/elc-registry',
     tag: 'E-Services'
   }
 ];

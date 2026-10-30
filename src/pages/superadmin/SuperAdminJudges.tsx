@@ -39,6 +39,7 @@
 //   the effect's other work (dispatches) has finished.
 
 import { useEffect, useMemo, useState } from 'react';
+import JudgeOrderPanel from '../../component/JudgeOrderPanel';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchAllJudges,
@@ -60,6 +61,12 @@ import {
 } from '../../store/slices/judgesSlice';
 import { isSuperAdmin as userIsSuperAdmin } from '../../store/slices/authSlice';
 import type { AppDispatch, RootState } from '../../store/store';
+import JudgeExtraFields from '../../component/JudgeExtraFields';
+import {
+  EducationEditor,
+  SpecializationsEditor,
+  PortraitPicker,
+} from '../admin/AdminJudges';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -94,25 +101,22 @@ const initials = (name: string): string =>
     .map((p) => p[0])
     .join('') || '?';
 
-/**
- * Editable fields the super-admin editor exposes.
- *
- * Deliberately a SUBSET of `JudgeInput`. Education and specializations
- * are excluded — the editor doesn't render them, so it shouldn't send
- * them. The server's PATCH schema treats absent fields as "leave
- * alone", which is the correct semantics: if an admin edits education
- * on the same record while this editor is open, the super-admin's save
- * won't clobber it.
- */
-type EditorForm = Omit<JudgeInput, 'education' | 'specializations'>;
-
-const formFromJudge = (judge: Judge): EditorForm => ({
-  name:          judge.name,
-  title:         judge.title,
-  station:       judge.station,
-  region:        judge.region,
+const formFromJudge = (judge: Judge): JudgeInput => ({
+  name: judge.name,
+  title: judge.title,
+  station: judge.station,
+  region: judge.region,
   appointedYear: judge.appointedYear,
-  bio:           judge.bio,
+  bio: judge.bio,
+  // Defensive copies so editing doesn't mutate the Redux-stored arrays.
+  education:
+    judge.education.length > 0
+      ? judge.education.map((e) => ({ ...e }))
+      : [{ degree: '', institution: '' }],
+  specializations: [...judge.specializations],
+  workExperience: judge.workExperience.map((w) => ({ ...w })),
+  keyAchievements: judge.keyAchievements,
+  admission: judge.admission,
 });
 
 // ─── Editor ──────────────────────────────────────────────────────────────────
@@ -129,22 +133,8 @@ const JudgeEditor = ({ judge, onClose, onSaved }: EditorProps) => {
     (s: RootState) => s.judges,
   );
 
-  const [form, setForm] = useState<EditorForm>(() => formFromJudge(judge));
+  const [form, setForm] = useState<JudgeInput>(() => formFromJudge(judge));
   const [imageFile, setImageFile] = useState<File | null>(null);
-
-  // Derive the preview URL during render. No state, no cascading
-  // renders — the URL is a pure function of `imageFile`.
-  const previewUrl = useMemo(
-    () => (imageFile ? URL.createObjectURL(imageFile) : null),
-    [imageFile],
-  );
-
-  // Revoke the object URL when it's no longer needed. The effect does
-  // NOT call setState — that's what would trigger the compiler warning.
-  useEffect(() => {
-    if (!previewUrl) return;
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [previewUrl]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -157,10 +147,6 @@ const JudgeEditor = ({ judge, onClose, onSaved }: EditorProps) => {
 
   const handleSave = async () => {
     try {
-      // Send only the fields this editor owns. Omitting education and
-      // specializations means the server preserves the existing values
-      // instead of overwriting them with a stale copy of what was
-      // loaded when the editor opened.
       await dispatch(
         updateJudge({
           judgeId: judge.id,
@@ -173,8 +159,6 @@ const JudgeEditor = ({ judge, onClose, onSaved }: EditorProps) => {
       // Slice already recorded saveError.
     }
   };
-
-  const shownImageUrl = previewUrl ?? judge.image?.url ?? null;
 
   return (
     <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
@@ -244,71 +228,27 @@ const JudgeEditor = ({ judge, onClose, onSaved }: EditorProps) => {
           value={form.bio}
           onChange={handleChange}
           rows={5}
-          placeholder="Biography"
+          placeholder="Biography (optional)"
           className="rounded border border-gray-300 px-3 py-2 text-sm"
         />
 
-        {/* Portrait preview + picker. */}
-        <div className="space-y-2">
-          <span className="text-xs font-medium text-gray-600">Portrait</span>
-          <div className="flex items-center gap-4">
-            {shownImageUrl ? (
-              <img
-                src={shownImageUrl}
-                alt=""
-                className="h-16 w-16 rounded object-cover object-top border border-gray-200"
-              />
-            ) : (
-              <div className="h-16 w-16 rounded border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-[10px] text-gray-400 text-center px-1">
-                No portrait
-              </div>
-            )}
+        <EducationEditor
+          entries={form.education}
+          onChange={(next) => setForm((prev) => ({ ...prev, education: next }))}
+        />
 
-            <div className="flex flex-col gap-1.5">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(e) => {
-                  setImageFile(e.target.files?.[0] ?? null);
-                  e.target.value = '';
-                }}
-                className="text-xs"
-              />
-              {imageFile && (
-                <button
-                  type="button"
-                  onClick={() => setImageFile(null)}
-                  className="text-xs text-red-700 hover:underline text-left"
-                >
-                  Remove selected file
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <JudgeExtraFields form={form} setForm={setForm} />
 
-        {/* Education and specializations aren't editable from this
-            page. Show a read-only summary so the reviewer knows the
-            record has them, and where to edit them if needed. */}
-        {(judge.education.length > 0 || judge.specializations.length > 0) && (
-          <div className="text-xs text-gray-500 space-y-0.5">
-            {judge.education.length > 0 && (
-              <div>
-                <span className="font-medium text-gray-600">Education:</span>{' '}
-                {judge.education.length} entr
-                {judge.education.length === 1 ? 'y' : 'ies'}
-                {' '}— edit in the admin workspace.
-              </div>
-            )}
-            {judge.specializations.length > 0 && (
-              <div>
-                <span className="font-medium text-gray-600">Specializations:</span>{' '}
-                {judge.specializations.length}
-                {' '}— edit in the admin workspace.
-              </div>
-            )}
-          </div>
-        )}
+        <SpecializationsEditor
+          tags={form.specializations}
+          onChange={(next) => setForm((prev) => ({ ...prev, specializations: next }))}
+        />
+
+        <PortraitPicker
+          existingImageUrl={judge.image?.url ?? null}
+          stagedFile={imageFile}
+          onPickFile={setImageFile}
+        />
 
         {saveError && <p className="text-sm text-red-600">{saveError}</p>}
         {saveSuccess && <p className="text-sm text-green-600">Saved.</p>}
@@ -513,7 +453,7 @@ const SuperAdminJudges = () => {
     userIsSuperAdmin(s.auth.user),
   );
 
-  const [tab, setTab] = useState<'pending' | 'published'>('pending');
+  const [tab, setTab] = useState<'pending' | 'published' | 'all'>('pending');
   const [rejecting, setRejecting] = useState<JudgeSummary | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -524,7 +464,7 @@ const SuperAdminJudges = () => {
 
   // Published list is loaded lazily the first time the tab is opened.
   useEffect(() => {
-    if (tab === 'published') dispatch(fetchAllJudges());
+    if (tab !== 'pending') dispatch(fetchAllJudges());
   }, [tab, dispatch]);
 
   // When the super admin opens the editor, load the full record.
@@ -606,7 +546,7 @@ const SuperAdminJudges = () => {
   // Tab switch: close the editor and the reject dialog, then switch.
   // Doing this in the click handler (not in an effect on `tab`) keeps
   // the "user changed context" logic in the event that caused it.
-  const handleTabChange = (next: 'pending' | 'published') => {
+  const handleTabChange = (next: 'pending' | 'published' | 'all') => {
     if (next === tab) return;
     handleCloseEditor();
     setRejecting(null);
@@ -623,7 +563,8 @@ const SuperAdminJudges = () => {
     );
   }
 
-  const rows = tab === 'pending' ? pendingItems : publishedItems;
+  const rows =
+    tab === 'pending' ? pendingItems : tab === 'all' ? adminItems : publishedItems;
   const loading = tab === 'pending' ? isLoadingPending : isLoadingAdmin;
   const error = tab === 'pending' ? pendingError : adminError;
 
@@ -652,6 +593,8 @@ const SuperAdminJudges = () => {
           onSaved={handleSaved}
         />
       )}
+
+      <JudgeOrderPanel />
 
       {/* Tabs */}
       <div className="mb-4 flex gap-2 border-b border-gray-200">
@@ -682,6 +625,17 @@ const SuperAdminJudges = () => {
         >
           Published
         </button>
+        <button
+          type="button"
+          onClick={() => handleTabChange('all')}
+          className={`px-3 py-2 text-sm ${
+            tab === 'all'
+              ? 'border-b-2 border-blue-600 font-medium text-blue-600'
+              : 'text-gray-600'
+          }`}
+        >
+          All records
+        </button>
       </div>
 
       {/* Success / error banners */}
@@ -696,7 +650,7 @@ const SuperAdminJudges = () => {
 
       {!loading && !error && rows.length === 0 && (
         <p className="text-sm text-gray-500">
-          {tab === 'pending' ? 'Nothing awaiting review.' : 'No published records yet.'}
+          {tab === 'pending' ? 'Nothing awaiting review.' : tab === 'all' ? 'No judge records yet.' : 'No published records yet.'}
         </p>
       )}
 
@@ -722,7 +676,7 @@ const SuperAdminJudges = () => {
                   key={item.id}
                   item={item}
                   busy={isReviewing}
-                  showReviewActions={tab === 'pending'}
+                  showReviewActions={item.status === 'pending'}
                   onEdit={handleEdit}
                   onApprove={handleApprove}
                   onReject={setRejecting}

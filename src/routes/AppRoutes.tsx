@@ -17,6 +17,7 @@ import OfficeoftheRegistrar from '../pages/OfficeoftheRegistrar';
 import ElcDocuments from '../pages/ElcDocuments';
 import ContactPage from '../pages/ContactPage';
 import ElcRegistry from '../pages/ElcRegistry';
+import CoreValues from '../pages/CoreValues';
 
 import SuperAdminDashboard from '../pages/superadmin/SuperAdminDashboard';
 import SuperAdminHero from '../pages/superadmin/SuperAdminHero';
@@ -43,6 +44,7 @@ import SuperAdminPrincipalJudge from '../pages/superadmin/SuperAdminPrincipalJud
 import AdminPrincipalJudge from '../pages/admin/AdminPrincipalJudge';
 import SuperAdminContact from '../pages/superadmin/SuperAdminContact';
 import AdminContacts from '../pages/admin/AdminContacts';
+import SuperAdminUsers from '../pages/superadmin/SuperAdminUsers';
 
 const AppRoutes = () => {
   return (
@@ -57,6 +59,7 @@ const AppRoutes = () => {
         <Route path="media/publications" element={<Publications />} />
         <Route path="about/vision" element={<Missionandvision />} />
         <Route path="about/history" element={<HistoryElc />} />
+        <Route path="about/values" element={<CoreValues />} />
         <Route path="about/mandate" element={<Mandj />} />
         <Route path="leadership/advisory-committee" element={<ElcAdvisoryCommittee />} />
         <Route path="leadership/registrar" element={<OfficeoftheRegistrar />} />
@@ -84,6 +87,7 @@ const AppRoutes = () => {
             <Route path="judges" element={<SuperAdminJudges />} />
             <Route path="principal-judge" element={<SuperAdminPrincipalJudge />} />
             <Route path="contacts" element={<SuperAdminContact />} />
+            <Route path="users" element={<SuperAdminUsers />} />
 
           </Route>
         </Route>

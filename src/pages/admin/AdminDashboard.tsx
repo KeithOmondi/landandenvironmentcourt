@@ -1,9 +1,7 @@
+import DashboardOverview from '../../component/DashboardOverview';
 
+const AdminDashboard = () => (
+  <DashboardOverview basePath="/admin" isSuperAdmin={false} />
+);
 
-const AdminDashboard = () => {
-  return (
-    <div>AdminDashboard</div>
-  )
-}
-
-export default AdminDashboard
+export default AdminDashboard;

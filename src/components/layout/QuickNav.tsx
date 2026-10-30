@@ -16,7 +16,7 @@ const quickNavCards = [
   { title: 'Office of Principal Judge', icon: FaBuilding, path: '/leadership/principal-judge', highlighted: true, tag: 'Leadership' },
   { title: 'Office of The Registrar', icon: FaLandmark, path: '/leadership/registrar', tag: 'Administration' },
   { title: 'HiCAC Advisory', icon: FaBalanceScale, path: '/leadership/advisory-committee', tag: 'Committee' },
-  { title: 'Principal Registry', icon: FaFileAlt, path: '/registry/principal', tag: 'Records' },
+  { title: 'Court Registry', icon: FaFileAlt, path: '/elc-registry', tag: 'Records' },
 ];
 
 const QuickNav: React.FC = () => {

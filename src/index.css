@@ -1,1 +1,173 @@
 @import "tailwindcss";
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Admin / Super-admin theme
+
+   The management pages are built from plain utility classes (blue buttons,
+   gray borders...). Rather than rewrite every page, this layer re-skins them
+   inside `.admin-theme` (set on the <main> of both admin layouts) so they
+   match the emerald & gold workspace shell. Public pages are unaffected.
+   ────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --ink: #0f172a;
+  --emerald-950: #052e1f;
+  --emerald-900: #064e3b;
+  --emerald-800: #065f46;
+  --gold-600: #b8860b;
+  --gold-500: #d4a017;
+}
+
+/* Page titles */
+.admin-theme h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 600;
+  color: var(--emerald-950);
+  letter-spacing: -0.01em;
+}
+.admin-theme h1 + p {
+  margin-top: 0.25rem;
+}
+
+/* Primary buttons (were blue) */
+.admin-theme .bg-blue-600 {
+  background-color: var(--emerald-900);
+  border-radius: 0.5rem;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  transition: background-color 0.15s, box-shadow 0.15s, transform 0.05s;
+}
+.admin-theme .bg-blue-600:hover:not(:disabled) {
+  background-color: var(--emerald-800);
+  box-shadow: 0 4px 10px rgb(6 78 59 / 0.25);
+}
+.admin-theme .bg-blue-600:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.admin-theme .bg-blue-600:disabled {
+  cursor: not-allowed;
+}
+.admin-theme .bg-blue-50,
+.admin-theme .bg-blue-100 {
+  background-color: #ecfdf5;
+}
+.admin-theme .text-blue-600,
+.admin-theme .text-blue-700 {
+  color: var(--emerald-900);
+}
+.admin-theme .border-blue-600 {
+  border-color: var(--gold-600);
+}
+
+/* Secondary (outlined) buttons */
+.admin-theme button.border:not(.bg-blue-600):not([class*='border-red']):not([class*='border-amber']),
+.admin-theme button[class*='border-gray-300'] {
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.admin-theme button[class*='border-gray-300']:hover:not(:disabled) {
+  background-color: #f8fafc;
+  border-color: var(--emerald-800);
+}
+.admin-theme button {
+  cursor: pointer;
+}
+.admin-theme button:disabled {
+  cursor: not-allowed;
+}
+
+/* Form controls */
+.admin-theme input:not([type='checkbox']):not([type='radio']):not([type='file']),
+.admin-theme textarea,
+.admin-theme select {
+  border-radius: 0.5rem;
+  border-color: #cbd5e1;
+  background-color: #fff;
+  color: var(--ink);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.admin-theme input::placeholder,
+.admin-theme textarea::placeholder {
+  color: #94a3b8;
+}
+.admin-theme input:not([type='checkbox']):not([type='radio']):focus,
+.admin-theme textarea:focus,
+.admin-theme select:focus {
+  outline: none;
+  border-color: var(--emerald-800);
+  box-shadow: 0 0 0 3px rgb(6 95 70 / 0.18);
+}
+.admin-theme input[type='checkbox'],
+.admin-theme input[type='radio'] {
+  accent-color: var(--emerald-900);
+}
+
+/* Cards & tables */
+.admin-theme .rounded-lg.border.bg-white,
+.admin-theme .rounded.border.bg-white,
+.admin-theme .rounded-lg.border.border-gray-200 {
+  border-radius: 0.75rem;
+  border-color: #e2e8f0;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.06);
+}
+.admin-theme table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.admin-theme thead {
+  background-color: #f1f5f9;
+}
+.admin-theme thead th {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #475569;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.admin-theme tbody tr {
+  transition: background-color 0.12s;
+}
+.admin-theme tbody tr:hover {
+  background-color: #f8fafc;
+}
+.admin-theme tbody td {
+  border-top: 1px solid #f1f5f9;
+}
+
+/* Tabs (border-b row of buttons) */
+.admin-theme .border-b.border-gray-200 > button {
+  font-weight: 500;
+  border-radius: 0;
+  margin-bottom: -1px;
+}
+.admin-theme .border-b.border-gray-200 > button.border-b-2 {
+  border-bottom-width: 2px;
+}
+
+/* Status chips */
+.admin-theme .rounded-full.px-2.py-0\.5 {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* Muted copy */
+.admin-theme .text-gray-500 {
+  color: #64748b;
+}
+
+/* Thin scrollbars inside the workspace */
+.admin-theme ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.admin-theme ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}

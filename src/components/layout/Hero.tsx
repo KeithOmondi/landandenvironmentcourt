@@ -176,12 +176,14 @@ const Hero: React.FC = () => {
       isActive={slide.displayOrder === slides[currentSlide]?.displayOrder}
     />
   ))}
-  {/* Gradient overlay — solid on the left for text legibility,
-      fading to mostly transparent on the right so the image shows. */}
-  <div className="absolute inset-0 bg-gradient-to-r from-[#061e14] via-[#061e14]/70 to-[#061e14]/10" />
-  {/* Subtle vertical vignette to keep top/bottom text crisp without
-      dimming the middle of the image. */}
-  <div className="absolute inset-0 bg-gradient-to-b from-[#061e14]/60 via-transparent to-[#061e14]/60" />
+
+  {/* Horizontal scrim: heavy only on the far left (behind the headline),
+      tapering off quickly so the people/subject in the image stay visible. */}
+  <div className="absolute inset-0 bg-gradient-to-r from-[#061e14]/95 via-[#061e14]/40 to-transparent" />
+
+  {/* Top scrim: just enough for the badge + nav contrast. No bottom scrim
+      so the lower part of the photo isn't dimmed. */}
+  <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#061e14]/70 to-transparent" />
 </div>
 
         {/* Watermark */}

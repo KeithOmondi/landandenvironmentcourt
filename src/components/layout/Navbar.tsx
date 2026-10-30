@@ -73,7 +73,6 @@ const Navbar: React.FC = () => {
                 {openDropdown === 'leadership' && (
                   <div className="absolute left-0 mt-2 w-64 bg-white rounded-sm shadow-xl border border-gray-100 py-2 z-50">
                     <Link to="/leadership/principal-judge" className="block px-4 py-2 hover:bg-gray-50 hover:text-[#B8860B]">Office of The Principal Judge</Link>
-                    {/* <Link to="/leadership/presiding-judges" className="block px-4 py-2 hover:bg-gray-50 hover:text-[#B8860B]">Presiding Judges</Link>  */}
                     <Link to="/leadership/advisory-committee" className="block px-4 py-2 hover:bg-gray-50 hover:text-[#B8860B]">ELC Advisory Committee</Link>
                     <Link to="/leadership/registrar" className="block px-4 py-2 hover:bg-gray-50 hover:text-[#B8860B]">Office of The Registrar</Link>
                   </div>
@@ -92,11 +91,6 @@ const Navbar: React.FC = () => {
               </Link>
               </div>
 
-              {/* Principal Registry 
-              <Link to="/registry/principal" className="px-3 py-2 hover:text-[#B8860B] transition">
-                Principal Registry
-              </Link>*/}
-
               {/* Media Center Dropdown */}
               <div className="relative">
                 <button
@@ -112,7 +106,6 @@ const Navbar: React.FC = () => {
                     <Link to="/media/events" className="block px-4 py-2 hover:bg-gray-50 hover:text-[#B8860B]">Events</Link>
                     <Link to="/media/publications" className="block px-4 py-2 hover:bg-gray-50 hover:text-[#B8860B]">Publications</Link>
                     <Link to="/media/documents" className="block px-4 py-2 hover:bg-gray-50 hover:text-[#B8860B]">Documents</Link>
-                    <Link to="/media/tributes" className="block px-4 py-2 hover:bg-gray-50 hover:text-[#B8860B]">Tributes</Link>
                   </div>
                 )}
               </div>
@@ -129,13 +122,15 @@ const Navbar: React.FC = () => {
                 <FaSearch className="w-4 h-4" />
               </button>
 
-              <Link
-                to="/efiling"
+              <a
+                href="https://efiling.judiciary.go.ke"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 border-2 border-[#0A2E1F] text-[#0A2E1F] font-semibold text-sm hover:bg-[#0A2E1F] hover:text-white transition-all rounded-sm"
               >
                 <FaBalanceScale className="text-lg" />
                 <span>e-Filing</span>
-              </Link>
+              </a>
             </div>
 
             {/* Mobile Menu Button */}
@@ -166,7 +161,7 @@ const Navbar: React.FC = () => {
                 {openDropdown === 'mobile-about' && (
                   <div className="pl-6 space-y-1 text-gray-600">
                     <Link to="/about/mandate" className="block py-1">Mandate and Jurisdiction</Link>
-                    <Link to="/about/history" className="block py-1">History of the High Court</Link>
+                    <Link to="/about/history" className="block py-1">History of ELC</Link>
                     <Link to="/about/vision" className="block py-1">Vision, Mission and Motto</Link>
                     <Link to="/about/values" className="block py-1">Core Values</Link>
                   </div>
@@ -183,25 +178,41 @@ const Navbar: React.FC = () => {
                 {openDropdown === 'mobile-leadership' && (
                   <div className="pl-6 space-y-1 text-gray-600">
                     <Link to="/leadership/principal-judge" className="block py-1">Office of The Principal Judge</Link>
-                    <Link to="/leadership/presiding-judges" className="block py-1">Presiding Judges</Link>
-                    <Link to="/leadership/advisory-committee" className="block py-1">High Court Advisory Committee</Link>
+                    <Link to="/leadership/advisory-committee" className="block py-1">ELC Advisory Committee</Link>
                     <Link to="/leadership/registrar" className="block py-1">Office of The Registrar</Link>
-                    <Link to="/leadership/deputy-registrars" className="block py-1">Deputy Registrars</Link>
                   </div>
                 )}
 
-                <Link to="/judges" className="block px-3 py-2 text-gray-700">Judges</Link>
-                <Link to="/registry/principal" className="block px-3 py-2 text-gray-700">Principal Registry</Link>
+                <Link to="/elc-judges" className="block px-3 py-2 text-gray-700">Judges</Link>
+                <Link to="/elc-registry" className="block px-3 py-2 text-gray-700">Court Registry</Link>
+
+                <button
+                  onClick={() => toggleDropdown('mobile-media')}
+                  className="flex items-center justify-between w-full px-3 py-2 text-gray-700"
+                >
+                  Media Center
+                  <FaChevronDown className={`h-3 w-3 transition-transform ${openDropdown === 'mobile-media' ? 'rotate-180' : ''}`} />
+                </button>
+                {openDropdown === 'mobile-media' && (
+                  <div className="pl-6 space-y-1 text-gray-600">
+                    <Link to="/media/news" className="block py-1">News</Link>
+                    <Link to="/media/events" className="block py-1">Events</Link>
+                    <Link to="/media/publications" className="block py-1">Publications</Link>
+                    <Link to="/media/documents" className="block py-1">Documents</Link>
+                  </div>
+                )}
                 <Link to="/contact" className="block px-3 py-2 text-gray-700">Contact Us</Link>
 
                 <div className="pt-2">
-                  <Link
-                    to="/efiling"
+                  <a
+                href="https://efiling.judiciary.go.ke"
+                target="_blank"
+                rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-[#0A2E1F] text-[#0A2E1F] font-semibold text-sm rounded-sm"
-                  >
+              >
                     <FaBalanceScale className="text-lg" />
                     <span>e-Filing</span>
-                  </Link>
+                  </a>
                 </div>
               </div>
             </div>

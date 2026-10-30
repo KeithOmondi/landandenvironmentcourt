@@ -198,7 +198,7 @@ export const logoutUser = createAsyncThunk(
   'auth/logoutUser',
   async (_, { rejectWithValue }) => {
     try {
-      // await axiosClient.post('/auth/logout');   // ← uncomment when the route lands
+      await axiosClient.post('/auth/logout');
       return null;
     } catch (error) {
       // Even if the server call fails, the client clears local state.

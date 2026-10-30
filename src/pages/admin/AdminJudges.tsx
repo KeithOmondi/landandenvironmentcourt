@@ -59,6 +59,8 @@ import {
 } from '../../store/slices/judgesSlice';
 import { isSuperAdmin as userIsSuperAdmin } from '../../store/slices/authSlice';
 import type { AppDispatch, RootState } from '../../store/store';
+import JudgeExtraFields from '../../component/JudgeExtraFields';
+import JudgeOrderPanel from '../../component/JudgeOrderPanel';
 
 // ─── Small helpers ───────────────────────────────────────────────────────────
 
@@ -86,6 +88,9 @@ const emptyInput = (): JudgeInput => ({
   bio: '',
   education: [{ degree: '', institution: '' }],
   specializations: [],
+  workExperience: [],
+  keyAchievements: '',
+  admission: '',
 });
 
 const formFromJudge = (judge: Judge | null): JudgeInput =>
@@ -103,6 +108,9 @@ const formFromJudge = (judge: Judge | null): JudgeInput =>
             ? judge.education.map((e) => ({ ...e }))
             : [{ degree: '', institution: '' }],
         specializations: [...judge.specializations],
+        workExperience: judge.workExperience.map((w) => ({ ...w })),
+        keyAchievements: judge.keyAchievements,
+        admission: judge.admission,
       }
     : emptyInput();
 
@@ -119,7 +127,7 @@ interface EducationEditorProps {
   onChange: (next: EducationEntry[]) => void;
 }
 
-const EducationEditor = ({ entries, onChange }: EducationEditorProps) => {
+export const EducationEditor = ({ entries, onChange }: EducationEditorProps) => {
   const handleField = (
     index: number,
     field: keyof EducationEntry,
@@ -218,7 +226,7 @@ interface SpecializationsEditorProps {
   onChange: (next: string[]) => void;
 }
 
-const SpecializationsEditor = ({
+export const SpecializationsEditor = ({
   tags,
   onChange,
 }: SpecializationsEditorProps) => {
@@ -316,7 +324,7 @@ interface PortraitPickerProps {
   onPickFile: (file: File | null) => void;
 }
 
-const PortraitPicker = ({
+export const PortraitPicker = ({
   existingImageUrl,
   stagedFile,
   onPickFile,
@@ -529,7 +537,7 @@ const JudgeEditor = ({ judge, onClose }: EditorProps) => {
           name="bio"
           value={form.bio}
           onChange={handleChange}
-          placeholder="Biography — judicial role, career highlights"
+          placeholder="Biography (optional) — judicial role, career highlights"
           rows={5}
           className="rounded border border-gray-300 px-3 py-2 text-sm"
         />
@@ -540,6 +548,8 @@ const JudgeEditor = ({ judge, onClose }: EditorProps) => {
             setForm((prev) => ({ ...prev, education: next }))
           }
         />
+
+        <JudgeExtraFields form={form} setForm={setForm} />
 
         <SpecializationsEditor
           tags={form.specializations}
@@ -803,6 +813,8 @@ const AdminJudges = () => {
           New judge record
         </button>
       </div>
+
+      <JudgeOrderPanel />
 
       <div className="mb-4 flex gap-2 border-b border-gray-200">
         <button

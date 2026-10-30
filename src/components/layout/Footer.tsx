@@ -8,6 +8,26 @@ import {
   FaGavel 
 } from 'react-icons/fa';
 
+// External link when a destination is known; otherwise plain text, so the
+// footer never contains dead "#" links that open a blank tab.
+const FooterLink: React.FC<{ label: string; href?: string }> = ({ label, href }) =>
+  href ? (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:text-[#D4AF37] transition-colors flex items-center gap-1.5 group"
+    >
+      <FaChevronRight className="w-2 h-2 text-[#C69A33] group-hover:translate-x-1 transition-transform" />
+      <span>{label}</span>
+    </a>
+  ) : (
+    <span className="flex items-center gap-1.5 text-slate-400 cursor-default">
+      <FaChevronRight className="w-2 h-2 text-[#C69A33]/50" />
+      <span>{label}</span>
+    </span>
+  );
+
 const Footer: React.FC = () => {
   return (
     <footer className="relative bg-[#061e14] text-white pt-16 pb-8 border-t-4 border-[#C69A33] overflow-hidden">
@@ -97,21 +117,13 @@ const Footer: React.FC = () => {
             <ul className="space-y-2 text-xs text-slate-300">
               {[
                 { label: 'E-Filing Portal', href: 'https://efiling.judiciary.go.ke' },
-                { label: 'Public Information Kiosk', href: '#' },
-                { label: 'Validate Court Orders', href: '#' },
-                { label: 'Environment & Land Cause Lists', href: '#' },
-                { label: 'Judiciary Advocates Management System', href: '#' },
+                { label: 'Public Information Kiosk' },
+                { label: 'Validate Court Orders' },
+                { label: 'Environment & Land Cause Lists' },
+                { label: 'Judiciary Advocates Management System' },
               ].map((link, idx) => (
                 <li key={idx}>
-                  <a 
-                    href={link.href} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="hover:text-[#D4AF37] transition-colors flex items-center gap-1.5 group"
-                  >
-                    <FaChevronRight className="w-2 h-2 text-[#C69A33] group-hover:translate-x-1 transition-transform" />
-                    <span>{link.label}</span>
-                  </a>
+                  <FooterLink label={link.label} href={link.href} />
                 </li>
               ))}
             </ul>
@@ -126,24 +138,16 @@ const Footer: React.FC = () => {
               {[
                 { label: 'Judiciary of Kenya', href: 'https://www.judiciary.go.ke' },
                 { label: 'Judicial Service Commission (JSC)', href: 'https://www.jsc.go.ke' },
-                { label: 'Supreme Court of Kenya', href: '#' },
-                { label: 'Office of the Chief Justice', href: '#' },
-                { label: 'Kenya Judiciary Academy (KJA)', href: '#' },
-                { label: 'Kenya Law Reports', href: 'http://kenyalaw.org' },
-                { label: 'National Council on the Administration of Justice (NCAJ)', href: '#' },
-                { label: 'Office of the Attorney General', href: '#' },
-                { label: 'Office of the Director of Public Prosecutions', href: '#' },
+                { label: 'Supreme Court of Kenya', href: 'https://www.supremecourt.judiciary.go.ke' },
+                { label: 'Office of the Chief Justice' },
+                { label: 'Kenya Judiciary Academy (KJA)', href: 'https://kja.ac.ke' },
+                { label: 'Kenya Law Reports', href: 'https://kenyalaw.org' },
+                { label: 'National Council on the Administration of Justice (NCAJ)' },
+                { label: 'Office of the Attorney General', href: 'https://www.ag.go.ke' },
+                { label: 'Office of the Director of Public Prosecutions', href: 'https://www.odpp.go.ke' },
               ].map((link, idx) => (
                 <li key={idx}>
-                  <a 
-                    href={link.href} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="hover:text-[#D4AF37] transition-colors flex items-center gap-1.5 group"
-                  >
-                    <FaChevronRight className="w-2 h-2 text-[#C69A33] group-hover:translate-x-1 transition-transform" />
-                    <span>{link.label}</span>
-                  </a>
+                  <FooterLink label={link.label} href={link.href} />
                 </li>
               ))}
             </ul>

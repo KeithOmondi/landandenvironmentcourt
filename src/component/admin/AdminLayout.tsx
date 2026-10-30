@@ -15,7 +15,7 @@ const AdminLayout = () => {
         <AdminSidebar />
 
         {/* Content Viewport */}
-        <main className="flex-1 min-w-0 p-6 md:p-8 bg-slate-50/50 min-h-[calc(100vh-3.5rem)]">
+        <main className="admin-theme flex-1 min-w-0 p-6 md:p-8 bg-slate-50/50 min-h-[calc(100vh-3.5rem)]">
           <div className="max-w-7xl mx-auto">
             <Outlet />
           </div>

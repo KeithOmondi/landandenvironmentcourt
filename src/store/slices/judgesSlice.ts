@@ -77,6 +77,12 @@ export interface EducationEntry {
   year?: string;
 }
 
+export interface WorkExperienceEntry {
+  position: string;
+  organization: string;
+  period?: string;
+}
+
 /**
  * A Cloudinary image reference. Mirrors `ImageAsset` on the backend.
  *
@@ -100,6 +106,9 @@ export interface Judge {
   bio: string;
   education: EducationEntry[];
   specializations: string[];
+  workExperience: WorkExperienceEntry[];
+  keyAchievements: string;
+  admission: string;
   image: ImageAsset | null;
   status: JudgeStatus;
   publishedAt: string | null;
@@ -133,6 +142,9 @@ export interface JudgeInput {
   bio: string;
   education: EducationEntry[];
   specializations: string[];
+  workExperience: WorkExperienceEntry[];
+  keyAchievements: string;
+  admission: string;
 }
 
 export interface JudgeSummary {
@@ -145,6 +157,9 @@ export interface JudgeSummary {
   bio: string;
   education: EducationEntry[];
   specializations: string[];
+  workExperience: WorkExperienceEntry[];
+  keyAchievements: string;
+  admission: string;
   image: ImageAsset | null;
   status: JudgeStatus;
   publishedAt: string | null;
@@ -306,6 +321,9 @@ const toSummary = (judge: Judge): JudgeSummary => ({
   bio:             judge.bio,
   education:       judge.education,
   specializations: judge.specializations,
+  workExperience:  judge.workExperience,
+  keyAchievements: judge.keyAchievements,
+  admission:       judge.admission,
   image:           judge.image,
   status:          judge.status,
   publishedAt:     judge.publishedAt,
@@ -528,6 +546,18 @@ export const deleteJudge = createAsyncThunk(
     try {
       await axiosClient.delete(`${JUDGES_BASE}/admin/${judgeId}`);
       return judgeId;
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  },
+);
+
+export const reorderJudges = createAsyncThunk(
+  'judges/reorderJudges',
+  async (ids: string[], { rejectWithValue }) => {
+    try {
+      await axiosClient.put(`${JUDGES_BASE}/admin/reorder`, { ids });
+      return ids;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }

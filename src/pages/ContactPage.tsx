@@ -1,4 +1,10 @@
 import React, { useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import type { AppDispatch, RootState } from '../store/store';
+import {
+  submitContactMessage,
+  clearSubmitMessageState,
+} from '../store/slices/contactSlice';
 import {
   FaPhoneAlt,
   FaEnvelope,
@@ -33,7 +39,7 @@ const ELC_STATIONS: StationContact[] = [
     station: 'Milimani ELC Registry (Nairobi)',
     poBox: 'P.O. Box 30041-00100, Nairobi',
     phone: '0730 181 192',
-    email: 'milimani.drelc@court.go.ke',
+    email: 'milimani.orelc@court.go.ke',
   },
   {
     station: 'Milimani ELC Appeals Division',
@@ -369,15 +375,33 @@ export const ContactPage: React.FC = () => {
     subject: '',
     message: '',
   });
-  const [submitted, setSubmitted] = useState(false);
+  const dispatch = useDispatch<AppDispatch>();
+  const { isSubmittingMessage, submitMessageError, submitMessageSuccess } =
+    useSelector((state: RootState) => state.contact);
+  // Honeypot: real users never see or fill this; bots do.
+  const [honeypot, setHoneypot] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
+    if (isSubmittingMessage) return;
+
+    const result = await dispatch(
+      submitContactMessage({
+        payload: {
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          subject: formData.subject.trim() || null,
+          message: formData.message.trim(),
+        },
+        honeypot,
+      }),
+    );
+
+    // Only clear the form once the server has actually recorded it.
+    if (submitContactMessage.fulfilled.match(result)) {
       setFormData({ name: '', email: '', subject: '', message: '' });
-    }, 4000);
+      setTimeout(() => dispatch(clearSubmitMessageState()), 6000);
+    }
   };
 
   // ── Derived: filtered + sorted stations ────────────────────────────────────
@@ -556,13 +580,29 @@ export const ContactPage: React.FC = () => {
               </p>
             </div>
 
-            {submitted && (
+            {submitMessageSuccess && (
               <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-mono">
-                ✓ Thank you! Your message has been submitted to the ELC Registry.
+                ✓ Thank you! Your message has been received by the ELC Registry.
+              </div>
+            )}
+
+            {submitMessageError && (
+              <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs font-mono">
+                ✕ {submitMessageError}
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                type="text"
+                name="_gotcha"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                className="hidden"
+              />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-mono font-bold text-slate-600">
@@ -620,6 +660,7 @@ export const ContactPage: React.FC = () => {
                 <textarea
                   rows={5}
                   required
+                  minLength={10}
                   placeholder="Write your inquiry or message..."
                   value={formData.message}
                   onChange={(e) =>
@@ -631,9 +672,10 @@ export const ContactPage: React.FC = () => {
 
               <button
                 type="submit"
-                className="px-6 py-3 rounded-xl bg-[#C69A33] hover:bg-[#b0882b] text-white font-mono text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                disabled={isSubmittingMessage}
+                className="px-6 py-3 rounded-xl bg-[#C69A33] hover:bg-[#b0882b] disabled:opacity-60 disabled:cursor-not-allowed text-white font-mono text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
               >
-                <FaPaperPlane /> Send Message
+                <FaPaperPlane /> {isSubmittingMessage ? 'Sending…' : 'Send Message'}
               </button>
             </form>
           </div>

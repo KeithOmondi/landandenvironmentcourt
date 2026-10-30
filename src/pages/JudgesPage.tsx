@@ -32,6 +32,8 @@ import {
   FaIdCard,
   FaUserShield,
   FaGraduationCap,
+  FaBriefcase,
+  FaTrophy,
   FaAward,
   FaBuilding,
   FaMapMarkerAlt,
@@ -453,6 +455,7 @@ const JudgesPage: React.FC = () => {
               </div>
 
               {/* Bio Section */}
+              {selectedJudge.bio && (
               <div className="space-y-2">
                 <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#C69A33] flex items-center gap-2">
                   <FaGavel />
@@ -462,6 +465,7 @@ const JudgesPage: React.FC = () => {
                   {selectedJudge.bio}
                 </p>
               </div>
+              )}
 
               {/* Academic Qualifications */}
               <div className="space-y-2">
@@ -487,13 +491,56 @@ const JudgesPage: React.FC = () => {
                       )}
                     </li>
                   ))}
-                  {selectedJudge.education.length === 0 && (
+                  {selectedJudge.admission && (
+                    <li className="text-xs text-emerald-900 bg-emerald-950/5 p-2.5 rounded-lg border border-emerald-900/20 font-medium">
+                      {selectedJudge.admission}
+                    </li>
+                  )}
+                  {selectedJudge.education.length === 0 && !selectedJudge.admission && (
                     <li className="text-xs text-slate-400 italic bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                       No qualifications recorded.
                     </li>
                   )}
                 </ul>
               </div>
+
+              {/* Work Experience */}
+              {selectedJudge.workExperience.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#061e14] flex items-center gap-2">
+                    <FaBriefcase className="text-[#C69A33]" />
+                    <span>Work Experience</span>
+                  </h4>
+                  <ul className="space-y-1.5">
+                    {selectedJudge.workExperience.map((job, index) => (
+                      <li
+                        key={index}
+                        className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-200"
+                      >
+                        <span className="font-semibold">{job.position}</span>
+                        <span className="text-slate-400"> — </span>
+                        <span>{job.organization}</span>
+                        {job.period && (
+                          <span className="text-slate-400"> ({job.period})</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Key Achievements */}
+              {selectedJudge.keyAchievements && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#061e14] flex items-center gap-2">
+                    <FaTrophy className="text-[#C69A33]" />
+                    <span>Key Achievements</span>
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-200 whitespace-pre-line">
+                    {selectedJudge.keyAchievements}
+                  </p>
+                </div>
+              )}
 
               {/* Key Jurisprudential Areas */}
               <div className="space-y-2">
